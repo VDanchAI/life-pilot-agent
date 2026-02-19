@@ -118,191 +118,191 @@ The heart of Life Pilot. A structured reflection system based on the GROW framew
 │   (input)    │     │    (bot)     │     │    (AI agent)    │
 └──────────────┘     └──────────────┘     └──────────────────┘
                                             │    │    │
-                                                                                        ▼    ▼    ▼
-                                                                                                                             ┌────────┐┌────────┐┌────────┐
-                                                                                                                                                                  │Todoist ││Google  ││Obsidian│
-                                                                                                                                                                                                       │(tasks) ││Calendar││(notes) │
-                                                                                                                                                                                                                                            └────────┘└────────┘└────────┘
-                                                                                                                                                                                                                                            ```
+                                            ▼    ▼    ▼
+                                     ┌────────┐┌────────┐┌────────┐
+                                     │Todoist ││Google  ││Obsidian│
+                                     │(tasks) ││Calendar││(notes) │
+                                     └────────┘└────────┘└────────┘
+```
 
-                                                                                                                                                                                                                                            ### Tech Stack
+### Tech Stack
 
-                                                                                                                                                                                                                                            - **Language:** Python 3.12+
-                                                                                                                                                                                                                                            - **Package manager:** uv (astral.sh)
-                                                                                                                                                                                                                                            - **Telegram framework:** aiogram 3.0+ (async)
-                                                                                                                                                                                                                                            - **Transcription:** Deepgram SDK (nova-3)
-                                                                                                                                                                                                                                            - **Tasks:** Todoist API
-                                                                                                                                                                                                                                            - **AI engine:** Claude Code CLI (subprocess)
-                                                                                                                                                                                                                                            - **MCP servers:** Todoist, Google Calendar
-                                                                                                                                                                                                                                            - **Storage:** File system (Obsidian vault, Markdown + JSONL sessions)
-                                                                                                                                                                                                                                            - **Deploy:** systemd on Ubuntu VPS
-                                                                                                                                                                                                                                            - **Code quality:** ruff + mypy strict + pytest
+- **Language:** Python 3.12+
+- **Package manager:** uv (astral.sh)
+- **Telegram framework:** aiogram 3.0+ (async)
+- **Transcription:** Deepgram SDK (nova-3)
+- **Tasks:** Todoist API
+- **AI engine:** Claude Code CLI (subprocess)
+- **MCP servers:** Todoist, Google Calendar
+- **Storage:** File system (Obsidian vault, Markdown + JSONL sessions)
+- **Deploy:** systemd on Ubuntu VPS
+- **Code quality:** ruff + mypy strict + pytest
 
-                                                                                                                                                                                                                                            ### Project Structure
+### Project Structure
 
-                                                                                                                                                                                                                                            ```
-                                                                                                                                                                                                                                            src/d_brain/
-                                                                                                                                                                                                                                            ├── __main__.py              # Entry point
-                                                                                                                                                                                                                                            ├── config.py                # Pydantic Settings from .env
-                                                                                                                                                                                                                                            ├── bot/
-                                                                                                                                                                                                                                            │   ├── main.py              # Bot init, router registration
-                                                                                                                                                                                                                                            │   ├── keyboards.py         # Reply keyboard (7 buttons)
-                                                                                                                                                                                                                                            │   ├── formatters.py        # HTML report formatting
-                                                                                                                                                                                                                                            │   ├── progress.py          # Async progress utility
-                                                                                                                                                                                                                                            │   ├── utils.py             # Shared helpers
-                                                                                                                                                                                                                                            │   ├── states.py            # FSM states
-                                                                                                                                                                                                                                            │   └── handlers/
-                                                                                                                                                                                                                                            │       ├── commands.py      # /start, /help, /status, /plan
-                                                                                                                                                                                                                                            │       ├── process.py       # ⚙️ Process — Claude inbox processing
-                                                                                                                                                                                                                                            │       ├── do.py            # ✨ Request — free-form Claude queries
-                                                                                                                                                                                                                                            │       ├── weekly.py        # 📅 Weekly digest
-                                                                                                                                                                                                                                            │       ├── grow.py          # 🧭 GROW coaching sessions (FSM)
-                                                                                                                                                                                                                                            │       ├── grow_scheduler.py # Scheduled GROW reminders
-                                                                                                                                                                                                                                            │       ├── voice.py         # Voice → transcription → storage
-                                                                                                                                                                                                                                            │       ├── text.py          # Text messages (catch-all)
-                                                                                                                                                                                                                                            │       ├── photo.py         # Photo attachments
-                                                                                                                                                                                                                                            │       ├── forward.py       # Forwarded messages
-                                                                                                                                                                                                                                            │       └── buttons.py       # Keyboard button routing
-                                                                                                                                                                                                                                            └── services/
-                                                                                                                                                                                                                                                ├── transcription.py     # DeepgramTranscriber
-                                                                                                                                                                                                                                                    ├── storage.py           # VaultStorage (daily markdown)
-                                                                                                                                                                                                                                                        ├── processor.py         # ClaudeProcessor (subprocess)
-                                                                                                                                                                                                                                                            ├── grow.py              # GROW session logic, question bank, drafts
-                                                                                                                                                                                                                                                                ├── session.py           # SessionStorage (JSONL logging)
-                                                                                                                                                                                                                                                                    ├── calendar_integration.py  # Google Calendar sync
-                                                                                                                                                                                                                                                                        └── git.py               # Auto-commit & push
+```
+src/d_brain/
+├── __main__.py              # Entry point
+├── config.py                # Pydantic Settings from .env
+├── bot/
+│   ├── main.py              # Bot init, router registration
+│   ├── keyboards.py         # Reply keyboard (7 buttons)
+│   ├── formatters.py        # HTML report formatting
+│   ├── progress.py          # Async progress utility
+│   ├── utils.py             # Shared helpers
+│   ├── states.py            # FSM states
+│   └── handlers/
+│       ├── commands.py      # /start, /help, /status, /plan
+│       ├── process.py       # ⚙️ Process — Claude inbox processing
+│       ├── do.py            # ✨ Request — free-form Claude queries
+│       ├── weekly.py        # 📅 Weekly digest
+│       ├── grow.py          # 🧭 GROW coaching sessions (FSM)
+│       ├── grow_scheduler.py # Scheduled GROW reminders
+│       ├── voice.py         # Voice → transcription → storage
+│       ├── text.py          # Text messages (catch-all)
+│       ├── photo.py         # Photo attachments
+│       ├── forward.py       # Forwarded messages
+│       └── buttons.py       # Keyboard button routing
+└── services/
+    ├── transcription.py     # DeepgramTranscriber
+    ├── storage.py           # VaultStorage (daily markdown)
+    ├── processor.py         # ClaudeProcessor (subprocess)
+    ├── grow.py              # GROW session logic, question bank, drafts
+    ├── session.py           # SessionStorage (JSONL logging)
+    ├── calendar_integration.py  # Google Calendar sync
+    └── git.py               # Auto-commit & push
 
-                                                                                                                                                                                                                                                                        vault/                       # Obsidian vault
-                                                                                                                                                                                                                                                                        ├── daily/                   # Daily entries (YYYY-MM-DD.md)
-                                                                                                                                                                                                                                                                        ├── goals/                   # Goal hierarchy (vision → yearly → monthly → weekly)
-                                                                                                                                                                                                                                                                        ├── thoughts/                # Classified notes (ideas/ learnings/ projects/)
-                                                                                                                                                                                                                                                                        ├── reflections/             # GROW coaching sessions (weekly/ monthly/ quarterly/ yearly/)
-                                                                                                                                                                                                                                                                        ├── summaries/               # Weekly summaries
-                                                                                                                                                                                                                                                                        ├── templates/               # Note templates
-                                                                                                                                                                                                                                                                        ├── sessions/                # JSONL session logs
-                                                                                                                                                                                                                                                                        ├── attachments/             # Photos by date
-                                                                                                                                                                                                                                                                        └── .claude/                 # Claude config for vault processing
+vault/                       # Obsidian vault
+├── daily/                   # Daily entries (YYYY-MM-DD.md)
+├── goals/                   # Goal hierarchy (vision → yearly → monthly → weekly)
+├── thoughts/                # Classified notes (ideas/ learnings/ projects/)
+├── reflections/             # GROW coaching sessions (weekly/ monthly/ quarterly/ yearly/)
+├── summaries/               # Weekly summaries
+├── templates/               # Note templates
+├── sessions/                # JSONL session logs
+├── attachments/             # Photos by date
+└── .claude/                 # Claude config for vault processing
 
-                                                                                                                                                                                                                                                                        deploy/                      # systemd units
-                                                                                                                                                                                                                                                                        scripts/                     # Automation (process.sh, weekly.py, send_*.py)
-                                                                                                                                                                                                                                                                        ```
+deploy/                      # systemd units
+scripts/                     # Automation (process.sh, weekly.py, send_*.py)
+```
 
-                                                                                                                                                                                                                                                                        ---
+---
 
-                                                                                                                                                                                                                                                                        ## Quick Start
+## Quick Start
 
-                                                                                                                                                                                                                                                                        ### Prerequisites
+### Prerequisites
 
-                                                                                                                                                                                                                                                                        | Component | Purpose | Cost |
-                                                                                                                                                                                                                                                                        |---|---|---|
-                                                                                                                                                                                                                                                                        | Claude Pro/Max | AI agent | $20/mo |
-                                                                                                                                                                                                                                                                        | VPS (non-RU/BY) | 24/7 bot hosting | ~$5/mo |
-                                                                                                                                                                                                                                                                        | GitHub | Backup & sync | Free |
-                                                                                                                                                                                                                                                                        | Deepgram | Voice transcription | Free ($200 credit) |
-                                                                                                                                                                                                                                                                        | Todoist | Task management | Free / $4/mo Pro |
+| Component | Purpose | Cost |
+|---|---|---|
+| Claude Pro/Max | AI agent | $20/mo |
+| VPS (non-RU/BY) | 24/7 bot hosting | ~$5/mo |
+| GitHub | Backup & sync | Free |
+| Deepgram | Voice transcription | Free ($200 credit) |
+| Todoist | Task management | Free / $4/mo Pro |
 
-                                                                                                                                                                                                                                                                        ### 1. Clone & Configure
+### 1. Clone & Configure
 
-                                                                                                                                                                                                                                                                        ```bash
-                                                                                                                                                                                                                                                                        git clone https://github.com/YOUR_USERNAME/life-pilot-agent.git
-                                                                                                                                                                                                                                                                        cd life-pilot-agent
-                                                                                                                                                                                                                                                                        cp .env.example .env
-                                                                                                                                                                                                                                                                        ```
+```bash
+git clone https://github.com/YOUR_USERNAME/life-pilot-agent.git
+cd life-pilot-agent
+cp .env.example .env
+```
 
-                                                                                                                                                                                                                                                                        Edit `.env` with your keys:
+Edit `.env` with your keys:
 
-                                                                                                                                                                                                                                                                        ```env
-                                                                                                                                                                                                                                                                        TELEGRAM_BOT_TOKEN=       # From @BotFather
-                                                                                                                                                                                                                                                                        DEEPGRAM_API_KEY=         # console.deepgram.com
-                                                                                                                                                                                                                                                                        TODOIST_API_KEY=          # Todoist → Settings → Integrations
-                                                                                                                                                                                                                                                                        VAULT_PATH=./vault
-                                                                                                                                                                                                                                                                        ALLOWED_USER_IDS=[123]    # Your Telegram ID (from @userinfobot)
-                                                                                                                                                                                                                                                                        GIT_PUSH_ENABLED=true
-                                                                                                                                                                                                                                                                        ```
+```env
+TELEGRAM_BOT_TOKEN=       # From @BotFather
+DEEPGRAM_API_KEY=         # console.deepgram.com
+TODOIST_API_KEY=          # Todoist → Settings → Integrations
+VAULT_PATH=./vault
+ALLOWED_USER_IDS=[123]    # Your Telegram ID (from @userinfobot)
+GIT_PUSH_ENABLED=true
+```
 
-                                                                                                                                                                                                                                                                        ### 2. Set Up Your Goals
+### 2. Set Up Your Goals
 
-                                                                                                                                                                                                                                                                        Fill in the files in `vault/goals/`:
+Fill in the files in `vault/goals/`:
 
-                                                                                                                                                                                                                                                                        - `0-vision-3y.md` — 3-year vision
-                                                                                                                                                                                                                                                                        - `1-yearly-2026.md` — yearly goals
-                                                                                                                                                                                                                                                                        - `2-monthly.md` — monthly priorities
-                                                                                                                                                                                                                                                                        - `3-weekly.md` — weekly focus
+- `0-vision-3y.md` — 3-year vision
+- `1-yearly-2026.md` — yearly goals
+- `2-monthly.md` — monthly priorities
+- `3-weekly.md` — weekly focus
 
-                                                                                                                                                                                                                                                                        ### 3. Install & Run
+### 3. Install & Run
 
-                                                                                                                                                                                                                                                                        ```bash
-                                                                                                                                                                                                                                                                        # Install dependencies
-                                                                                                                                                                                                                                                                        uv sync
+```bash
+# Install dependencies
+uv sync
 
-                                                                                                                                                                                                                                                                        # Run locally
-                                                                                                                                                                                                                                                                        uv run python -m d_brain
+# Run locally
+uv run python -m d_brain
 
-                                                                                                                                                                                                                                                                        # Or deploy with systemd (production)
-                                                                                                                                                                                                                                                                        sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
-                                                                                                                                                                                                                                                                        sudo systemctl enable --now d-brain-bot.service
-                                                                                                                                                                                                                                                                        sudo systemctl enable --now d-brain-process.timer    # Evening processing at 21:00
-                                                                                                                                                                                                                                                                        sudo systemctl enable --now d-brain-weekly.timer      # Weekly digest
-                                                                                                                                                                                                                                                                        ```
+# Or deploy with systemd (production)
+sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
+sudo systemctl enable --now d-brain-bot.service
+sudo systemctl enable --now d-brain-process.timer    # Evening processing at 21:00
+sudo systemctl enable --now d-brain-weekly.timer      # Weekly digest
+```
 
-                                                                                                                                                                                                                                                                        ### 4. Customize Schedule
+### 4. Customize Schedule
 
-                                                                                                                                                                                                                                                                        All report and coaching times are configured in `src/d_brain/bot/main.py` → `create_scheduler()`. Default timezone is `Europe/Chisinau`. Adjust to your rhythm:
+All report and coaching times are configured in `src/d_brain/bot/main.py` → `create_scheduler()`. Default timezone is `Europe/Chisinau`. Adjust to your rhythm:
 
-                                                                                                                                                                                                                                                                        | Event | Default time | What to change |
-                                                                                                                                                                                                                                                                        |---|---|---|
-                                                                                                                                                                                                                                                                        | Morning plan | 08:00 | `send_morning_plan` cron hour |
-                                                                                                                                                                                                                                                                        | Evening processing | 21:00 | `d-brain-process.timer` or scheduler job |
-                                                                                                                                                                                                                                                                        | Weekly GROW coaching | Saturday 21:00 | `scheduled_grow_weekly` cron day/hour |
-                                                                                                                                                                                                                                                                        | Monthly GROW coaching | 1st of month 21:00 | `scheduled_grow_monthly` cron day/hour |
-                                                                                                                                                                                                                                                                        | Timezone | Europe/Chisinau | `timezone` parameter in `create_scheduler()` |
+| Event | Default time | What to change |
+|---|---|---|
+| Morning plan | 08:00 | `send_morning_plan` cron hour |
+| Evening processing | 21:00 | `d-brain-process.timer` or scheduler job |
+| Weekly GROW coaching | Saturday 21:00 | `scheduled_grow_weekly` cron day/hour |
+| Monthly GROW coaching | 1st of month 21:00 | `scheduled_grow_monthly` cron day/hour |
+| Timezone | Europe/Chisinau | `timezone` parameter in `create_scheduler()` |
 
-                                                                                                                                                                                                                                                                        > ⚠️ **Important:** Set the timezone and times that match your daily routine. The system works best when morning plan arrives before your day starts and evening report comes after your workday ends.
+> ⚠️ **Important:** Set the timezone and times that match your daily routine. The system works best when morning plan arrives before your day starts and evening report comes after your workday ends.
 
-                                                                                                                                                                                                                                                                        ### 5. Verify
+### 5. Verify
 
-                                                                                                                                                                                                                                                                        ```bash
-                                                                                                                                                                                                                                                                        # Check bot is running
-                                                                                                                                                                                                                                                                        sudo journalctl -u d-brain-bot -f
+```bash
+# Check bot is running
+sudo journalctl -u d-brain-bot -f
 
-                                                                                                                                                                                                                                                                        # Run linters
-                                                                                                                                                                                                                                                                        uv run ruff check src/
-                                                                                                                                                                                                                                                                        uv run mypy src/
-                                                                                                                                                                                                                                                                        uv run pytest
-                                                                                                                                                                                                                                                                        ```
+# Run linters
+uv run ruff check src/
+uv run mypy src/
+uv run pytest
+```
 
-                                                                                                                                                                                                                                                                        ---
+---
 
-                                                                                                                                                                                                                                                                        ## How It Differs from the Original
+## How It Differs from the Original
 
-                                                                                                                                                                                                                                                                        This project started as a fork of [smixs/agent-second-brain](https://github.com/smixs/agent-second-brain) and evolved into a different product:
+This project started as a fork of [smixs/agent-second-brain](https://github.com/smixs/agent-second-brain) and evolved into a different product:
 
-                                                                                                                                                                                                                                                                        | Feature | Original | Life Pilot |
-                                                                                                                                                                                                                                                                        |---|---|---|
-                                                                                                                                                                                                                                                                        | Design philosophy | Tech-first | Psychology-first |
-                                                                                                                                                                                                                                                                        | Google Calendar integration | ❌ | ✅ Morning plan with schedule |
-                                                                                                                                                                                                                                                                        | Automated daily rhythm | ❌ | ✅ Morning plan + evening report |
-                                                                                                                                                                                                                                                                        | Weekly digest + coaching | ❌ | ✅ Progress review with questions |
-                                                                                                                                                                                                                                                                        | GROW coaching protocol | ❌ | ✅ Weekly / monthly / quarterly / yearly |
-                                                                                                                                                                                                                                                                        | Monthly planning | ❌ | ✅ Guided goal-setting session |
-                                                                                                                                                                                                                                                                        | Smart task management | Basic | Stale detection, transfers, updates |
-                                                                                                                                                                                                                                                                        | Project sorting | Single inbox | Multi-project classification |
-                                                                                                                                                                                                                                                                        | Interactive buttons | Basic | 7-button keyboard with full workflows |
-                                                                                                                                                                                                                                                                        | Bug fixes | — | Multiple hidden issues resolved |
-                                                                                                                                                                                                                                                                        | Code quality | — | ruff 0 errors, mypy strict 0 errors |
+| Feature | Original | Life Pilot |
+|---|---|---|
+| Design philosophy | Tech-first | Psychology-first |
+| Google Calendar integration | ❌ | ✅ Morning plan with schedule |
+| Automated daily rhythm | ❌ | ✅ Morning plan + evening report |
+| Weekly digest + coaching | ❌ | ✅ Progress review with questions |
+| GROW coaching protocol | ❌ | ✅ Weekly / monthly / quarterly / yearly |
+| Monthly planning | ❌ | ✅ Guided goal-setting session |
+| Smart task management | Basic | Stale detection, transfers, updates |
+| Project sorting | Single inbox | Multi-project classification |
+| Interactive buttons | Basic | 7-button keyboard with full workflows |
+| Bug fixes | — | Multiple hidden issues resolved |
+| Code quality | — | ruff 0 errors, mypy strict 0 errors |
 
-                                                                                                                                                                                                                                                                        ---
+---
 
-                                                                                                                                                                                                                                                                        ## License
+## License
 
-                                                                                                                                                                                                                                                                        MIT
+MIT
 
-                                                                                                                                                                                                                                                                        ---
+---
 
-                                                                                                                                                                                                                                                                        ## Author
+## Author
 
-                                                                                                                                                                                                                                                                        Created by a practicing psychologist who builds AI tools for personal development and self-awareness.
+Created by a practicing psychologist who builds AI tools for personal development and self-awareness.
 
-                                                                                                                                                                                                                                                                        ## Credits
+## Credits
 
-                                                                                                                                                                                                                                                                        Inspired by [smixs/agent-second-brain](https://github.com/smixs/agent-second-brain). Built with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [MCP Protocol](https://modelcontextprotocol.io/).
+Inspired by [smixs/agent-second-brain](https://github.com/smixs/agent-second-brain). Built with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [MCP Protocol](https://modelcontextprotocol.io/).
