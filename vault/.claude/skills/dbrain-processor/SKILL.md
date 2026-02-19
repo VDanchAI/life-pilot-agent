@@ -81,7 +81,7 @@ idea/reflection/learning → thoughts/ (see references/classification.md)
 
 ## User Communication Style
 
-USER: Viktor (Vitya), psychologist, prefers direct Russian communication
+USER: Owner, prefers direct Russian communication
 
 ### Speech Patterns
 
