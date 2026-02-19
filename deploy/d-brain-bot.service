@@ -1,0 +1,15 @@
+[Unit]
+Description=d-brain Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=shima
+WorkingDirectory=/home/shima/projects/dbrain
+ExecStart=/home/shima/.local/bin/uv run python -m d_brain
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

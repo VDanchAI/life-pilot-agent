@@ -1,0 +1,235 @@
+{
+  "main": {
+    "id": "662d4c7d69a541ba",
+    "type": "split",
+    "children": [
+      {
+        "id": "747e42179e08450c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "33779f1727c2fed2",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "daily/2026-02-10.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "2026-02-10"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "77b7cbf717ee1786",
+    "type": "split",
+    "children": [
+      {
+        "id": "2dfcb45ad2b0342e",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "dbd3312b1edfda9c",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Файловый менеджер"
+            }
+          },
+          {
+            "id": "1649c748a86e7f4f",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Поиск"
+            }
+          },
+          {
+            "id": "b866c8feb0baaeb9",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Закладки"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 214.5
+  },
+  "right": {
+    "id": "6052711f9337cec9",
+    "type": "split",
+    "children": [
+      {
+        "id": "299ad4328e096cfa",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "43fed49b897949f3",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "daily/2026-01-31.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Обратные ссылки для 2026-01-31"
+            }
+          },
+          {
+            "id": "9046676798526cce",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "daily/2026-01-31.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Исходящие ссылки из 2026-01-31"
+            }
+          },
+          {
+            "id": "e6e745fb940efdee",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Теги"
+            }
+          },
+          {
+            "id": "800a5eac519b07da",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Все свойства"
+            }
+          },
+          {
+            "id": "21b8a710f4cfd8cd",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "daily/2026-01-31.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Структура 2026-01-31"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Меню быстрого перехода": false,
+      "graph:Граф": false,
+      "canvas:Создать новый холст": false,
+      "daily-notes:Сегодняшняя заметка": false,
+      "templates:Вставить шаблон": false,
+      "command-palette:Открыть палитру команд": false,
+      "bases:Создать новую базу": false,
+      "obsidian-git:Open Git source control": false
+    }
+  },
+  "active": "33779f1727c2fed2",
+  "lastOpenFiles": [
+    "Без названия 7.base",
+    "Без названия 6.base",
+    "Без названия 5.base",
+    "Без названия 4.base",
+    "Без названия 3.base",
+    "Без названия 2.base",
+    "Без названия 1.canvas",
+    "thoughts/ideas/prompting-research-digest.md",
+    "thoughts/ideas/telegram-canal-format.md",
+    "thoughts/ideas/gipnoticheskie-meditacii-cherez-ii-2026-02-08.md",
+    "thoughts/ideas/arxiv-ai-parser.md",
+    "MCP протокол.md",
+    "thoughts/learnings/claude-code-top-posts-2026-02-05.md",
+    "Agent second brain.base",
+    "2026-02-14.md",
+    "Без названия.base",
+    "Без названия 1.base",
+    "Без названия 8.base",
+    "Без названия.canvas",
+    "daily/2026-02-13.md",
+    "daily/2026-02-11.md",
+    "thoughts/projects/github-integration-2026-02-09.md",
+    "thoughts/learnings/notebooklm-telegram-use-cases-2026-02-09.md",
+    "thoughts/learnings/notebook-lm-automation-scheme-2026-02-10.md",
+    "daily/2026-02-10.md",
+    "daily/2026-02-09.md",
+    "attachments/2026-02-10/img-112131.jpg",
+    "attachments/2026-02-10/img-110946.jpg",
+    "attachments/2026-02-09/img-155822.jpg",
+    "attachments/2026-02-09/img-030139.jpg",
+    "attachments/2026-02-08/img-121320.jpg",
+    "thoughts/projects/viral-content-pipeline.md",
+    "thoughts/learnings/llm-limitations.md",
+    "thoughts/learnings/google-antigravity-notebooklm-integration-2026-02-08.md",
+    "thoughts/learnings/ai-corporate-roles-automation.md",
+    "thoughts/learnings/ai-competency-framework.md",
+    "thoughts/learnings/ai-automation-framework-marat.md",
+    "thoughts/ideas/viral-content-pipeline.md",
+    "thoughts/ideas/telegram-channel-format-50-50.md",
+    "daily/2026-02-08.md",
+    "daily/2026-02-07.md",
+    "daily/2026-02-05.md",
+    "attachments/2026-02-06/img-201530.jpg",
+    "attachments/2026-02-05/img-122153.jpg",
+    "attachments/2026-01-31/img-163839.jpg"
+  ]
+}
