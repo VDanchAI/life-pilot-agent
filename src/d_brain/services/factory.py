@@ -40,7 +40,9 @@ def get_runner() -> ClaudeRunner:
     settings = get_settings()
     from d_brain.services.claude_runner import ClaudeRunner
 
-    return ClaudeRunner(settings.vault_path, settings.todoist_api_key)
+    return ClaudeRunner(
+        settings.vault_path, settings.todoist_api_key, settings.claude_timeout,
+    )
 
 
 @lru_cache(maxsize=1)

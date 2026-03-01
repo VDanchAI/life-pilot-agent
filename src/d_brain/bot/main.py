@@ -27,6 +27,7 @@ def create_dispatcher() -> Dispatcher:
     """Create and configure the dispatcher with routers."""
     from d_brain.bot.handlers import (
         buttons,
+        coach,
         commands,
         do,
         forward,
@@ -38,6 +39,7 @@ def create_dispatcher() -> Dispatcher:
         recall,
         reflection,
         text,
+        vault_tools,
         voice,
         weekly,
         weekly_callbacks,
@@ -57,6 +59,8 @@ def create_dispatcher() -> Dispatcher:
     dp.include_router(reflection.router)
     dp.include_router(recall.router)
     dp.include_router(do.router)  # Before voice/text to catch FSM state
+    dp.include_router(coach.router)  # Coach Mode FSM — before buttons/text
+    dp.include_router(vault_tools.router)  # /health, /memory, /creative
     dp.include_router(buttons.router)  # Reply keyboard buttons
     dp.include_router(voice.router)
     dp.include_router(photo.router)
@@ -142,13 +146,13 @@ def create_scheduler(bot: Bot, settings: Settings):  # type: ignore[no-untyped-d
         logger.warning("No allowed_user_ids configured — scheduled jobs disabled")
         return scheduler
 
-    # Monthly report — 1st of each month at 21:00
+    # Monthly report — 1st of each month at 20:30 (before GROW at 21:00)
     scheduler.add_job(
         scheduled_monthly_report,
         trigger="cron",
         day=1,
-        hour=21,
-        minute=0,
+        hour=20,
+        minute=30,
         kwargs={"bot": bot, "chat_id": chat_id},
         id="monthly_report",
         replace_existing=True,
@@ -230,7 +234,7 @@ def create_scheduler(bot: Bot, settings: Settings):  # type: ignore[no-untyped-d
     )
 
     logger.info(
-        "Scheduler configured: monthly (1st 21:00), "
+        "Scheduler configured: monthly (1st 20:30), "
         "reminders (2-3rd 21:00), "
         "GROW weekly/monthly/quarterly/yearly"
     )

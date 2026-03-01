@@ -89,7 +89,12 @@ async def scheduled_grow_weekly(bot: Bot, chat_id: int) -> None:
 
     Called by the scheduler on Saturday, Sunday, and Monday at 21:00.
     Sends up to _MAX_ATTEMPTS reminders per period.
+    Skips on days 1-3 of the month — monthly GROW takes priority.
     """
+    if datetime.now().day <= 3:
+        logger.info("Weekly GROW: day 1-3 of month — deferring to monthly GROW")
+        return
+
     settings = get_settings()
     vault_path = settings.vault_path
 

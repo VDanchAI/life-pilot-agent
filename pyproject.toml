@@ -1,10 +1,10 @@
 [project]
-name = "life-pilot-agent"
+name = "agent-second-brain"
 version = "1.0.0"
 description = "Voice-first personal assistant for Telegram with Obsidian and Todoist integration"
 readme = "README.md"
 authors = [
-    { name = "Victor Danci", email = "" }
+    { name = "Your Name", email = "your@email.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
@@ -17,6 +17,8 @@ dependencies = [
     "pytz",
     "requests",
     "todoist-api-python>=3.1.0",
+    "google-auth>=2.0",
+    "google-api-python-client>=2.0",
 ]
 
 [project.optional-dependencies]

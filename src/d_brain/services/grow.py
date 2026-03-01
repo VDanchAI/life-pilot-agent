@@ -341,7 +341,10 @@ def get_period_for_session(session_type: str) -> str:
     """
     today = date.today()
     if session_type == "weekly":
-        iso_year, iso_week, _ = today.isocalendar()
+        iso_year, iso_week, iso_day = today.isocalendar()
+        if iso_day == 1:  # Monday retry belongs to Sat-Sun cycle
+            prev = today - timedelta(days=1)
+            iso_year, iso_week, _ = prev.isocalendar()
         return f"{iso_year}-W{iso_week:02d}"
     if session_type == "monthly":
         return today.strftime("%Y-%m")
@@ -669,7 +672,14 @@ async def analyze_answers(
 1. Напиши краткий итог рефлексии (3-5 предложений). Тон: поддерживающий,
 без оценки. Отметь что пользователь осознал, какие паттерны видны.
 
-2. Предложи конкретные обновления файла целей. Формат — JSON:
+2. Предложи конкретные обновления файла целей.
+
+3. Для каждой цели которую называл пользователь — придумай 1-2 конкретных
+ежедневных действия которые он полностью контролирует (process goals, не
+outcome). Не результат, а действие: не "написать 5 постов", а "30 минут
+утром — написать 1 пост до 10:00".
+
+Формат — JSON:
 {{
   "summary": "Краткий итог рефлексии...",
   "goal_updates": {{
@@ -678,11 +688,19 @@ async def analyze_answers(
       "ONE Big Thing": "новое значение",
       "Фокус недели": "обновлённый фокус"
     }}
-  }}
+  }},
+  "process_goals": [
+    {{
+      "outcome": "Закончить LinkedIn наполнение",
+      "behavior": "30 минут утром — написать 1 пост до 10:00"
+    }}
+  ]
 }}
 
 Если ответы не требуют обновления целей — goal_updates = null.
-Если все вопросы пропущены — summary: "Сессия пропущена", goal_updates: null.
+Если цели из ответов неясны — process_goals = [].
+Если все вопросы пропущены — summary: "Сессия пропущена", goal_updates: null,
+process_goals: [].
 
 Не выдумывай ответы за пользователя. Основывайся ТОЛЬКО на том что он написал.
 {f"""
@@ -714,6 +732,67 @@ CRITICAL OUTPUT FORMAT:
 
 
 # ---------------------------------------------------------------------------
+# Coaching context update
+# ---------------------------------------------------------------------------
+
+
+def _update_coaching_context(
+    process_goals: list[dict],
+    session_type: str,
+    period: str,
+    vault_path: Path,
+) -> None:
+    """Update vault/goals/coaching_context.md with process goals from GROW session.
+
+    Rewrites the "Текущие цели и ежедневные действия" table and the
+    "Последнее обновление" line.  Creates the file from a minimal template
+    if it does not yet exist.
+    """
+    ctx_path = vault_path / "goals" / "coaching_context.md"
+
+    if not ctx_path.exists():
+        ctx_path.parent.mkdir(parents=True, exist_ok=True)
+        ctx_path.write_text(
+            "# Coaching Context\n\n"
+            "## Профиль\n\n"
+            "- Часовой пояс: Europe/Kyiv\n\n"
+            "## Текущие цели и ежедневные действия\n\n"
+            "| Цель (outcome) | Ежедневное действие |\n"
+            "|---|---|\n\n"
+            "## Что даёт энергию\n\n"
+            "-\n\n"
+            "## Флаги (когда нужно пнуть)\n\n"
+            "-\n\n"
+            "## Последнее обновление\n\n"
+            "-\n",
+            encoding="utf-8",
+        )
+
+    rows = "\n".join(
+        f"| {g.get('outcome', '')} | {g.get('behavior', '')} |"
+        for g in process_goals
+        if g.get("outcome") and g.get("behavior")
+    )
+    table = (
+        "| Цель (outcome) | Ежедневное действие |\n"
+        "|---|---|\n"
+        f"{rows}"
+    )
+
+    today_str = date.today().isoformat()
+    session_label = _SESSION_LABELS.get(session_type, session_type)
+
+    update_goals(
+        ctx_path,
+        {
+            "Текущие цели и ежедневные действия": table,
+            "Последнее обновление": f"{today_str}, {session_label} {period}",
+        },
+    )
+    logger.info("coaching_context.md updated after %s %s", session_type, period)
+
+
+# ---------------------------------------------------------------------------
 # Finalize reflection
 # ---------------------------------------------------------------------------
 
@@ -724,6 +803,7 @@ def finalize_reflection(
     questions: list[dict],
     answers: dict,
     vault_path: Path,
+    process_goals: list[dict] | None = None,
 ) -> Path:
     """Convert draft to final markdown with YAML frontmatter.
 
@@ -778,6 +858,13 @@ date: {today_str}
 
     # Remove draft
     delete_draft(session_type, period, vault_path)
+
+    # Update coaching context with process goals if provided
+    if process_goals:
+        try:
+            _update_coaching_context(process_goals, session_type, period, vault_path)
+        except Exception:
+            logger.warning("Failed to update coaching_context.md", exc_info=True)
 
     return target
 

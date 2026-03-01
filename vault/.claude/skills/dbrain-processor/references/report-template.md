@@ -1,3 +1,10 @@
+---
+type: note
+title: HTML Report Template
+last_accessed: 2026-02-26
+relevance: 0.98
+tier: active
+---
 # HTML Report Template
 
 ## CRITICAL: Output Format
@@ -44,6 +51,10 @@ NO unsupported tags: div, span, br, p, table, tr, td
 <b>✅ Создано задач:</b> {M}
 • {task_name} <i>({priority}, {due})</i>
 
+<b>🏢 Business:</b>
+• {client_name} — {action/status}
+<i>{N} клиентов упомянуто</i>
+
 <b>📅 Загрузка на неделю:</b>
 Пн: {n} | Вт: {n} | Ср: {n} | Чт: {n} | Пт: {n} | Сб: {n} | Вс: {n}
 
@@ -78,6 +89,13 @@ Count saved, list with category emoji:
 ### Tasks (✅)
 Count created, list with priority and due date.
 Format: • Task name <i>(p2, friday)</i>
+
+### Business Activity (🏢)
+Show ONLY if client/project mentions exist.
+- Max 5 clients
+- If CRM status changed → add note
+- Format: • {Client} — {action}
+- Footer: <i>{N} клиентов упомянуто</i>
 
 ### Week Load (📅)
 Call find-tasks-by-date for 7 days.

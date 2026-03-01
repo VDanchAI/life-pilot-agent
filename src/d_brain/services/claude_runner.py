@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -10,15 +11,42 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 1200  # 20 minutes
 
+_ERROR_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"file.+not found", re.IGNORECASE), "Skill data unavailable"),
+    (re.compile(r"permission denied", re.IGNORECASE), "System error"),
+    (re.compile(r"mcp", re.IGNORECASE), "Task integration unavailable"),
+    (
+        re.compile(r"connection (refused|reset|timed out)", re.IGNORECASE),
+        "Service connection error",
+    ),
+    (re.compile(r"ENOENT|EACCES|EPERM", re.IGNORECASE), "System error"),
+    (re.compile(r"traceback|stacktrace", re.IGNORECASE), "Internal processing error"),
+]
+
+
+def _sanitize_error(raw: str) -> str:
+    """Replace raw error details with user-friendly messages.
+
+    Full error is already logged before this function is called.
+    """
+    for pattern, friendly in _ERROR_PATTERNS:
+        if pattern.search(raw):
+            return friendly
+    if len(raw) > 150 or "/" in raw:
+        return "Processing error"
+    return raw
+
 
 class ClaudeRunner:
     """Runs Claude CLI as a subprocess."""
 
     def __init__(
-        self, vault_path: Path, todoist_api_key: str = ""
+        self, vault_path: Path, todoist_api_key: str = "",
+        timeout: int = DEFAULT_TIMEOUT,
     ) -> None:
         self.vault_path = Path(vault_path)
         self.todoist_api_key = todoist_api_key
+        self.timeout = timeout
         self._mcp_config_path = (
             self.vault_path.parent / "mcp-config.json"
         ).resolve()
@@ -65,7 +93,7 @@ class ClaudeRunner:
                 cwd=self.vault_path.parent,
                 capture_output=True,
                 text=True,
-                timeout=DEFAULT_TIMEOUT,
+                timeout=self.timeout,
                 check=False,
                 env=env,
             )
@@ -91,7 +119,7 @@ class ClaudeRunner:
                     error_detail,
                 )
                 return {
-                    "error": f"{label} failed: {error_detail}",
+                    "error": f"{label} failed: {_sanitize_error(error_detail)}",
                     "processed_entries": 0,
                 }
 
@@ -114,7 +142,7 @@ class ClaudeRunner:
             }
         except Exception as e:
             logger.exception("Unexpected error during %s", label)
-            return {"error": str(e), "processed_entries": 0}
+            return {"error": _sanitize_error(str(e)), "processed_entries": 0}
 
     def load_skill_content(self) -> str:
         """Load dbrain-processor skill content."""

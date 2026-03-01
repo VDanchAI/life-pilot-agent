@@ -169,12 +169,20 @@ def format_process_report(report: dict[str, Any]) -> str:
         # Validate tag balance
         if not validate_telegram_html(sanitized):
             # Fall back to plain text if tags are broken
-            return html.escape(str(raw_report))
+            sanitized = html.escape(str(raw_report))
+        else:
+            # Truncate if too long
+            sanitized = truncate_html(sanitized, max_length=4096)
+    else:
+        sanitized = "✅ <b>Обработка завершена</b>"
 
-        # Truncate if too long
-        return truncate_html(sanitized, max_length=4096)
+    # Append warnings (e.g. git sync failure)
+    warnings = report.get("warnings")
+    if warnings:
+        warning_lines = "\n".join(f"⚠️ {html.escape(w)}" for w in warnings)
+        sanitized += f"\n\n{warning_lines}"
 
-    return "✅ <b>Обработка завершена</b>"
+    return sanitized
 
 
 def format_error(error: str) -> str:

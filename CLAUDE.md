@@ -1,4 +1,4 @@
-# Life Pilot Agent
+# Agent Second Brain
 
 Персональный AI-ассистент для захвата мыслей, голосовых заметок и управления задачами через Telegram. Интегрируется с Claude AI, Obsidian (хранение заметок) и Todoist (задачи). Целевая аудитория — один пользователь (владелец).
 
@@ -24,9 +24,9 @@ src/d_brain/
 ├── config.py                # Pydantic Settings из .env
 ├── bot/
 │   ├── main.py              # Инициализация бота, регистрация роутеров
-│   ├── keyboards.py         # Reply-клавиатура (5 кнопок)
+│   ├── keyboards.py         # Reply-клавиатура (10 кнопок, 4 строки)
 │   ├── formatters.py        # HTML-форматирование отчётов
-│   ├── states.py            # FSM-состояния (DoCommand, Process, Monthly, Grow, Reflection, Recall)
+│   ├── states.py            # FSM-состояния (DoCommand, Process, Monthly, Grow, Reflection, Recall, Coach)
 │   ├── utils.py             # download_telegram_file, transcribe_voice, send_formatted_report
 │   ├── progress.py          # run_with_progress() — async wrapper
 │   ├── components/
@@ -41,8 +41,10 @@ src/d_brain/
 │       ├── monthly_callbacks.py # Кнопки месячного отчёта + reformulation FSM
 │       ├── grow.py          # GROW coaching FSM (answering/confirming/correcting)
 │       ├── grow_scheduler.py # Scheduled GROW triggers (weekly/monthly/quarterly/yearly)
-│       ├── reflection.py    # Legacy Friday reflection (сохранён для обратной совместимости)
+│       ├── coach.py         # Coach Mode FSM (chatting/saving) — /coach + 🤝 Коуч кнопка
+│       ├── reflection.py    # DEPRECATED stub — редиректит старые кнопки на GROW
 │       ├── recall.py        # /recall — поиск по vault
+│       ├── vault_tools.py   # /health, /memory, /creative — утилиты vault
 │       ├── voice.py         # Голосовые сообщения → транскрипция
 │       ├── text.py          # Текстовые сообщения (catch-all, последний)
 │       ├── photo.py         # Фото-вложения
@@ -58,7 +60,7 @@ src/d_brain/
     ├── git.py               # VaultGit (auto-commit/push)
     ├── todoist.py           # TodoistService (REST API v1)
     ├── vault_search.py      # search_vault (grep + Russian morphology)
-    └── calendar_integration.py
+    └── calendar_integration.py  # Google Calendar MCP интеграция
 ```
 
 ```
@@ -97,7 +99,7 @@ scripts/                     # Скрипты автоматизации (proces
 
 ### Порядок регистрации роутеров (важен для FSM)
 
-commands → process → weekly → weekly_callbacks → monthly → monthly_callbacks → grow → reflection → recall → do → buttons → voice → photo → forward → text (catch-all последний)
+commands → process → weekly → weekly_callbacks → monthly → monthly_callbacks → grow → reflection → recall → do → **coach** → vault_tools → buttons → voice → photo → forward → text (catch-all последний)
 
 ## Правила
 
@@ -121,7 +123,7 @@ commands → process → weekly → weekly_callbacks → monthly → monthly_cal
 - Любая задача больше 50 строк кода — сначала план, потом код. Без явного ОК от пользователя код не писать
 - План должен описывать: какие файлы затрагиваются, что меняется, почему именно так
 - Большие задачи разбивай на подзадачи и делегируй субагентам. Основной контекст держи чистым — только планирование и координация.
-- Для диагностики проблем используй docker logs <container_name> --tail 100. Анализируй логи перед предложением фикса.
+- Для диагностики проблем используй `sudo journalctl -u d-brain.service --tail 100`. Анализируй логи перед предложением фикса.
 - После каждого фикса — докажи что работает. Напиши тест или покажи результат. Без доказательства фикс не считается завершённым.
 - После исправления бага — обнови этот CLAUDE.md, добавь ошибку в раздел "Известные проблемы".
 
@@ -134,33 +136,71 @@ commands → process → weekly → weekly_callbacks → monthly → monthly_cal
 - Не коммитить `.env` (уже в .gitignore)
 - Не использовать `git add -A` — коммитить конкретные файлы
 
+## Coaching Context (2026-coach интеграция)
+
+Интегрированы четыре идеи из репо 2026-coach:
+
+### Process Goals в GROW (services/grow.py)
+`analyze_answers()` теперь возвращает `process_goals` — список ежедневных
+контролируемых действий для каждой цели из сессии. После подтверждения
+записываются в `vault/goals/coaching_context.md` через `_update_coaching_context()`.
+
+### coaching_context.md (vault/goals/coaching_context.md)
+Структурированный профиль пользователя для Claude. Обновляется автоматически
+после каждой GROW-сессии и Coach-сессии. Включается во все `/do` запросы
+(первые 2000 символов).
+
+### Zoom In / Zoom Out (bot/handlers/text.py + services/processor.py)
+Catch-all text handler перехватывает паттерны до обычного сохранения в vault:
+- Паттерны zoom out: "zoom out", "погряз", "нет смысла", "потерял нить",
+  "большая картина", "зачем всё это" → `processor.zoom_out()`
+- Паттерны zoom in: "zoom in", "витаю в облаках", "что делать сегодня",
+  "с чего начать", "потерялся", "за что хвататься" → `processor.zoom_in()`
+
+### Coach Mode (bot/handlers/coach.py)
+Режим диалогового коучинга. `/coach` или кнопка "🤝 Коуч" запускают FSM-сессию:
+- `CoachStates.chatting` — диалог с Claude, история 20 сообщений (10 обменов)
+- Голосовые сообщения поддерживаются
+- "стоп" → предложение сохранить инсайты
+- `processor.save_coach_insights(history)` — обновляет coaching_context.md,
+  дописывает итог в daily vault
+
+### Auto-generate 2-monthly.md (services/processor.py + bot/handlers/grow.py)
+После завершения monthly GROW (`handle_confirm`):
+1. Архивирует `goals/2-monthly.md` → `goals/2-monthly-{old_period}.md`
+2. Генерирует новый `2-monthly.md` через `processor.generate_next_monthly_goals()`
+   на основе GROW-итога и годовых целей
+
+### Расписание APScheduler (bot/main.py + bot/handlers/grow_scheduler.py)
+- **monthly_report**: 1-е число в **20:30** (не 21:00 — чтобы не пересекаться с GROW)
+- **grow_weekly**: пропускает дни 1-3 месяца — monthly GROW имеет приоритет
+- **grow_monthly**: 1-3 числа в 21:00
+- Это предотвращает тройной флуд при совпадении начала месяца с Сб/Вс/Пн
+
+---
+
 ## Известные проблемы
 
 - **MemoryStorage FSM** — состояние /do теряется при рестарте бота. Для продакшена нужен Redis/PostgreSQL storage
-- **Нет rate-limiting** — ни для Telegram API, ни для Deepgram, ни для Todoist
-- **Deepgram захардкожен на русский** — модель nova-3, нет определения языка
-- **Ошибки Claude subprocess** показываются пользователю без обработки (raw errors)
-- **Git push** требует токен в remote URL — если токен протухнет, push молча упадёт
+- **Нет rate-limiting** — ни для Telegram API, ни для Deepgram, ни для Todoist (Claude subprocess имеет asyncio Lock + очередь до 2)
 - **Нет i18n** — весь интерфейс только на русском
 - **Todoist-ошибки не блокируют обработку** — задача может не создаться, но процесс завершится успешно
-- **Legacy reflection.py** — сохранён для обратной совместимости (кнопки в старых сообщениях). GROW weekly полностью его заменяет
+- **Нет мониторинга** — если бот упал, узнаем только когда пользователь заметит
+- **Claude = SPOF** — если Claude CLI недоступен, все AI-фичи не работают
 
-## Рефакторинг (2026-02-18)
+### Исправлено (2026-03-01)
 
-Завершён рефакторинг P0 и P1 (техдолг из анализа /techdebt). Ruff: 0 ошибок на всём проекте.
+- **~~Тройной флуд расписания~~** — monthly_report сдвинут на 20:30, grow_weekly пропускает дни 1-3 месяца
+- **~~Дублирование вопросов GROW~~** — deferred re-queue дедуплицируется по ID вопроса
+- **~~GROW draft накапливал вопросы~~** — при resume после рестарта вопросы больше не копятся
 
-### P0 — выполнено
+### Исправлено (2026-02-28, GSD inventory fixes)
 
-- **`@lru_cache` на `get_settings()`** (`config.py`) — убраны 14 дублей создания `Settings()` на каждый запрос. Теперь singleton.
-- **`_run_claude(prompt, label)`** (`services/processor.py`) — извлечён единый приватный метод вместо 4 копий `subprocess.run` + exception handling (~190 строк → ~30). `generate_monthly` заодно получил недостающие `TimeoutExpired` и `FileNotFoundError`.
-- **`ruff check --fix`** — автоисправлено 11 ошибок (сортировка импортов, удаление `import json`), вручную исправлены 14 ошибок E501 (длинные строки).
-
-### P1 — выполнено
-
-- **`run_with_progress(fn, status_msg, label, *args)`** (`bot/progress.py`) — общая async-утилита вместо 3 копий progress-polling loop в `process.py`, `weekly.py`, `do.py`.
-- **`download_telegram_file(bot, file_id)`** (`bot/utils.py`) — утилита скачивания файлов из Telegram вместо 3 копий в `voice.py`, `photo.py`, `do.py`. Бросает `ValueError` при ошибке.
-- **`send_formatted_report(status_msg, report)`** (`bot/utils.py`) — обёртка `format_process_report` + HTML fallback вместо 3 копий в `process.py`, `weekly.py`, `do.py`.
-- **`_TZ = pytz.timezone("Europe/Kyiv")`** (`services/processor.py`) — константа на уровне модуля вместо 3 inline `import pytz` + `pytz.timezone(...)` внутри методов.
+- **~~Deepgram захардкожен на русский~~** — теперь через `TRANSCRIPTION_LANGUAGE` в .env (default: ru)
+- **~~Ошибки Claude subprocess raw~~** — sanitize через `_sanitize_error()`, пользователь видит friendly messages
+- **~~Git push молча падал~~** — теперь возвращает `(bool, reason)`, пользователь видит warning при ошибке sync
+- **~~Claude timeout захардкожен 1200s~~** — теперь через `CLAUDE_TIMEOUT` в .env
+- **~~Legacy reflection.py 251 строка~~** — заменён на stub (50 строк), старые кнопки редиректят на GROW
 
 ## Деплой
 
@@ -180,6 +220,8 @@ TODOIST_API_KEY=         # Управление задачами
 VAULT_PATH=./vault       # Путь к Obsidian vault
 ALLOWED_USER_IDS=[123]   # JSON-массив разрешённых Telegram ID
 GIT_PUSH_ENABLED=true    # Автопуш в GitHub
+CLAUDE_TIMEOUT=1200      # Таймаут subprocess в секундах (default: 1200)
+TRANSCRIPTION_LANGUAGE=ru  # Язык транскрипции Deepgram (default: ru)
 ```
 
 ### Установка
@@ -201,7 +243,7 @@ uv sync                  # Установить зависимости
 uv run python -m d_brain
 
 # Через systemd (продакшен)
-sudo systemctl enable --now d-brain-bot.service
+sudo systemctl enable --now d-brain.service
 sudo systemctl enable --now d-brain-process.timer   # Обработка в 21:00
 sudo systemctl enable --now d-brain-weekly.timer     # Недельный дайджест
 ```
@@ -209,7 +251,7 @@ sudo systemctl enable --now d-brain-weekly.timer     # Недельный дай
 ### Логи
 
 ```bash
-sudo journalctl -u d-brain-bot -f
+sudo journalctl -u d-brain.service -f
 sudo journalctl -u d-brain-process -f
 ```
 
@@ -242,8 +284,16 @@ uv run pytest
 - [x1] Draft-файлы как JSON с расширением .draft.md — компромисс между машиночитаемостью (JSON) и единообразием в vault (все .md). При finalize парсится JSON -> генерируется markdown
 - [x1] При замене legacy-функционала (friday_reflection -> GROW weekly) оставлять старые callback handlers живыми — в чатах пользователя могут быть кнопки от старых сообщений
 
-# Уроки D.A.O.S.
+### 2026-02-22 — Общие паттерны
 
-- [x1] Deprecated timezone names (Europe/Kiev vs Europe/Kyiv) — проверять согласованность timezone во всех файлах проекта
-- [x1] Всегда grep-ить по паттерну бага во ВСЕХ файлах, а не только в месте где он проявился — один и тот же антипаттерн обычно повторяется
+- [x1] Баг обычно повторяется — grep по паттерну во ВСЕХ файлах (пример: deprecated timezone Europe/Kiev vs Europe/Kyiv встречался в нескольких местах)
+- [x1] grep -E с || создаёт пустую альтернацию и матчит ВСЕ строки — всегда тестировать regex перед деплоем в мониторинг-скриптах
+- [x1] GSD mapper agents produce redundancy by design (каждый покрывает свой аспект). При D.A.O.S. ревью мульти-агентного output — фокус на фактических ошибках и staleness, не на дедупликации между документами
+- [x1] Inventory docs устаревают сразу после изменения кода — помечать FIXED с датой создаёт audit trail, но трактовать как snapshot, не как living documentation
+- [x1] Перед правкой документации — проверять реальное состояние системы (systemd файл, версия в коде), а не полагаться на другие документы. Документы могут ссылаться друг на друга с ошибками
 
+### 2026-03-01 — CLAUDE.md D.A.O.S.
+
+- [x1] При добавлении новой .env переменной — сразу обновлять пример в CLAUDE.md (раздел Деплой). Расхождение env-примера с реальностью — частая причина путаницы при онбординге
+- [x1] При добавлении нового handler-файла или сервиса — сразу добавлять в дерево архитектуры CLAUDE.md
+- [x1] Changelog-разделы (Рефакторинг YYYY-MM-DD) устаревают и разбавляют рабочую документацию. Правильный паттерн: 'Исправлено (дата)' под Известными проблемами — да, отдельный 'Рефакторинг' раздел — нет

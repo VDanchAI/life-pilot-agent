@@ -26,7 +26,9 @@ async def handle_voice(message: Message, bot: Bot) -> None:
 
     settings = get_settings()
     storage = VaultStorage(settings.vault_path)
-    transcriber = DeepgramTranscriber(settings.deepgram_api_key)
+    transcriber = DeepgramTranscriber(
+        settings.deepgram_api_key, settings.transcription_language,
+    )
 
     try:
         audio_bytes, _ = await download_telegram_file(bot, message.voice.file_id)

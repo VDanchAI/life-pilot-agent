@@ -59,9 +59,25 @@ async def btn_status(message: Message) -> None:
     await cmd_status(message)
 
 
-@router.message(F.text == "❓ Помощь")
-async def btn_help(message: Message) -> None:
-    """Handle Help button."""
-    from d_brain.bot.handlers.commands import cmd_help
+@router.message(F.text == "🏥 Здоровье")
+async def btn_health(message: Message) -> None:
+    """Handle Health button."""
+    from d_brain.bot.handlers.vault_tools import cmd_health
 
-    await cmd_help(message)
+    await cmd_health(message)
+
+
+@router.message(F.text == "🧠 Память")
+async def btn_memory(message: Message) -> None:
+    """Handle Memory button."""
+    from d_brain.bot.handlers.vault_tools import cmd_memory
+
+    await cmd_memory(message)
+
+
+@router.message(F.text == "🎲 Находка")
+async def btn_creative(message: Message) -> None:
+    """Handle Creative button."""
+    from d_brain.bot.handlers.vault_tools import cmd_creative
+
+    await cmd_creative(message, command=None)

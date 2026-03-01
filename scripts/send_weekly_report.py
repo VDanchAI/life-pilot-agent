@@ -4,7 +4,7 @@
 import asyncio
 import sys
 
-sys.path.insert(0, '/home/ubuntu/agent-second-brain/src')
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src'))
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton

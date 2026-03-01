@@ -1,6 +1,10 @@
 ---
-name: weekly-digest
+type: note
 description: Generate weekly digest with goal progress, wins, challenges, and next week planning. Run on Sundays.
+last_accessed: 2026-01-31
+relevance: 0.59
+tier: cold
+name: weekly-digest
 ---
 
 # Weekly Digest Agent

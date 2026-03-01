@@ -1,82 +1,129 @@
-# Domain Configuration
+---
+type: note
+last_accessed: 2026-02-26
+relevance: 0.98
+tier: active
+---
+# Domains
 
-Domains define the organizational structure of the vault. Each domain has specific linking rules and priorities.
+Three knowledge organization domains in the vault.
 
-## Core Domains
+## Personal
 
-### daily/
-**Purpose:** Daily journal entries, raw captures
-**Format:** `YYYY-MM-DD.md`
-**Linking:**
-- Outgoing to thoughts/ when content is processed
-- Outgoing to projects/ when project mentioned
-- Should reference MOCs for categorization
+**Path:** `thoughts/`, `goals/`, `daily/`, `MOC/`, `MEMORY.md`
 
-### thoughts/
-**Purpose:** Processed and refined ideas
-**Subdirectories:**
-- `ideas/` — Creative concepts, innovations
-- `reflections/` — Personal insights, lessons learned
-- `learnings/` — Knowledge captured from reading/experience
-- `projects/` — Project-specific notes
+**Content:**
+- Personal thoughts and reflections
+- Goals (yearly -> monthly -> weekly)
+- Daily entries
+- Learnings and ideas
 
-**Linking:**
-- Incoming from daily/ (source entries)
-- Outgoing to MOC/ (categorization)
-- Cross-links within thoughts/ (related concepts)
+**Hub:** `MEMORY.md` -- central context
 
-### goals/
-**Purpose:** Goal hierarchy and tracking
-**Files:**
-- `0-vision-3y.md` — Long-term vision
-- `1-yearly-YYYY.md` — Annual goals
-- `2-monthly.md` — Monthly priorities
-- `3-weekly.md` — Weekly focus
-
-**Linking:**
-- Incoming from thoughts/ (ideas aligned with goals)
-- Incoming from daily/ (progress updates)
-- Should be highly connected as navigation hubs
-
-### MOC/
-**Purpose:** Maps of Content — index pages
-**Linking:**
-- Incoming from all domains (everything should have a MOC)
-- Outgoing to related MOCs
-- Central navigation hubs
-
-### projects/
-**Purpose:** Active project documentation
-**Linking:**
-- Incoming from daily/ (work logs)
-- Incoming from thoughts/ (related ideas)
-- Outgoing to goals/ (alignment)
-
-## Link Priority Rules
-
-When suggesting links, prioritize:
-
-1. **Orphan → MOC** — Every note should belong to a Map of Content
-2. **Daily → Thought** — Processed entries link to their refined notes
-3. **Thought → Goal** — Ideas should align with goals
-4. **Cross-domain** — Bridge related concepts across domains
-
-## Custom Domains
-
-Add custom domains by creating subdirectories and documenting them here:
-
-```markdown
-### your-domain/
-**Purpose:** Description
-**Linking:** Rules for incoming/outgoing links
+**Frontmatter:**
+```yaml
+domain: personal
+type: learning | reflection | idea | project
 ```
 
-## Entity Patterns
+---
 
-Common patterns to detect for auto-linking:
+## Business
 
-- `[[Note Name]]` — Existing wiki-links
-- `@mention` — People/contacts (if contacts domain exists)
-- `#tag` — Tags that may map to notes
-- Project names — Match against projects/ directory
-- Dates — Link to daily/ entries
+**Path:** `business/`
+
+**Structure:**
+```
+business/
++-- _index.md       # Entry point, dataview queries
++-- crm/            # Clients + deals
+|   +-- acme-corp.md
+|   +-- client-b.md
+|   +-- ...
++-- network/        # Org structure (Your Holding)
+|   +-- founders.md
+|   +-- partner-a.md
+|   +-- partner-b.md
++-- events/         # Events
+```
+
+**Hub:** `business/_index.md`
+
+**Frontmatter (CRM):**
+```yaml
+domain: business
+type: crm
+industry: FMCG | Electronics | Banks | Pharma | Retail
+priority: High | Mid | Low
+status: Active | Prospect | Dormant | Declined
+region: UZ | KZ | BY
+owner: [Your Name] | [Team Member]
+deal_status: In progress | Tender | Proposal sent
+deal_deadline: YYYY-MM-DD
+```
+
+**Key clients:**
+- Client-A (FMCG, High, Active)
+- Client-B (Electronics, High, Active)
+- Client-C (Electronics, Mid, Active)
+- Client-D (FMCG, Mid, Prospect)
+
+---
+
+## Projects
+
+**Path:** `projects/`
+
+**Structure:**
+```
+projects/
++-- _index.md       # Entry point
++-- clients/        # Project clients
+|   +-- client-a.md
+|   +-- client-b.md
+|   +-- client-c.md
+|   +-- client-d.md
++-- leads/          # Leads
+    +-- lead-a.md
+    +-- lead-b.md
+```
+
+**Hub:** `projects/_index.md`
+
+**Frontmatter:**
+```yaml
+domain: projects
+type: client | lead
+company: Name
+industry: Auto | IT | Retail | Education
+status: APPROVED | Proposal sent | Hot | Cold
+responsible: Name
+```
+
+**Difference from Business:**
+- Business = main business (agency, services)
+- Projects = personal side projects (consulting, training)
+
+---
+
+## Cross-domain links
+
+| Link | Example |
+|------|---------|
+| Projects -> Business | `lead-a` -> `partner-b` (partner) |
+| Personal -> Business | `learning` -> `acme-corp` (case from practice) |
+| Personal -> Projects | `learning` -> `client-a` (insight from training) |
+| Business -> Contacts | `acme-corp` -> contacts (contacts) |
+
+---
+
+## Determining domain by path
+
+```python
+def get_domain(path: Path) -> str:
+    if "business" in path.parts:
+        return "business"
+    elif "projects" in path.parts:
+        return "projects"
+    return "personal"
+```

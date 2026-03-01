@@ -1,6 +1,10 @@
 ---
-name: inbox-processor
+type: note
 description: GTD-style processing of incoming entries. Decide action for each item - do now, schedule, delegate, save, or delete.
+last_accessed: 2026-01-31
+relevance: 0.59
+tier: cold
+name: inbox-processor
 ---
 
 # Inbox Processor Agent

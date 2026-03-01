@@ -14,8 +14,12 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     # Row 2
     builder.button(text="📋 План")
     builder.button(text="📅 Неделя")
-    # Row 3
     builder.button(text="📊 Статус")
-    builder.button(text="❓ Помощь")
-    builder.adjust(3, 2, 2)
+    # Row 3
+    builder.button(text="🏥 Здоровье")
+    builder.button(text="🧠 Память")
+    builder.button(text="🎲 Находка")
+    # Row 4
+    builder.button(text="🤝 Коуч")
+    builder.adjust(3, 3, 3, 1)
     return builder.as_markup(resize_keyboard=True, is_persistent=True)

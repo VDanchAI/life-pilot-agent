@@ -1,13 +1,20 @@
+---
+type: note
+title: Entry Classification
+last_accessed: 2026-02-19
+relevance: 0.88
+tier: warm
+---
 # Entry Classification
 
 ## Work Domains → Categories
 
 Based on user's work context (see [ABOUT.md](ABOUT.md)):
 
-### Консультации / Клиенты
+### Психология / Клиенты
 Консультации, сессии, клиенты, группы, тренинги
 
-**Keywords:** клиент, сессия, консультация, группа, тренинг
+**Keywords:** клиент, сессия, консультация, группа, тренинг, терапия, гештальт, эриксон
 
 **→ Category:** task (p1-p2) → Todoist
 
@@ -21,7 +28,7 @@ Based on user's work context (see [ABOUT.md](ABOUT.md)):
 ### Контент
 Посты, идеи для Telegram и LinkedIn, продвижение практики
 
-**Keywords:** пост, @your_channel, LinkedIn, Facebook, контент, статья, сторис
+**Keywords:** пост, @your_handle, LinkedIn, Facebook, контент, статья, сторис
 
 **→ Category:** idea → thoughts/ideas/ или task если с дедлайном
 

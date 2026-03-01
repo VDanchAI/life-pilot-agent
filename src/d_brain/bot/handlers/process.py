@@ -17,7 +17,7 @@ from aiogram.types import (
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from d_brain.bot.progress import run_with_progress
+from d_brain.bot.progress import BusyError, run_with_progress
 from d_brain.bot.states import ProcessStates
 from d_brain.bot.utils import send_formatted_report, transcribe_voice
 from d_brain.services.factory import get_git, get_processor
@@ -85,17 +85,27 @@ async def _finalize_processing(
     processor = get_processor()
     git = get_git()
 
-    report = await run_with_progress(
-        processor.process_daily_finalize,
-        status_msg,
-        "⏳ Обрабатываю...",
-        day,
-        entries,
-    )
+    try:
+        report = await run_with_progress(
+            processor.process_daily_finalize,
+            status_msg,
+            "⏳ Обрабатываю...",
+            day,
+            entries,
+        )
+    except BusyError as e:
+        await status_msg.edit_text(str(e))
+        return
 
     if "error" not in report:
         today = day.isoformat()
-        await asyncio.to_thread(git.commit_and_push, f"chore: process daily {today}")
+        ok, reason = await asyncio.to_thread(
+            git.commit_and_push, f"chore: process daily {today}",
+        )
+        if not ok:
+            report.setdefault("warnings", []).append(
+                f"Vault not synced: {reason[:80]}",
+            )
 
     await _send_report_with_correction(message, status_msg, report, state)
 
@@ -117,12 +127,16 @@ async def cmd_process(message: Message, state: FSMContext) -> None:
     git = get_git()
     today = date.today()
 
-    result = await run_with_progress(
-        processor.categorize_daily,
-        status_msg,
-        "⏳ Категоризирую...",
-        today,
-    )
+    try:
+        result = await run_with_progress(
+            processor.categorize_daily,
+            status_msg,
+            "⏳ Категоризирую...",
+            today,
+        )
+    except BusyError as e:
+        await status_msg.edit_text(str(e))
+        return
 
     if "error" in result:
         await send_formatted_report(status_msg, result)
@@ -130,14 +144,22 @@ async def cmd_process(message: Message, state: FSMContext) -> None:
 
     if "parse_error" in result:
         logger.warning("Categorization parse failed, falling back to process_daily")
-        report = await run_with_progress(
-            processor.process_daily, status_msg, "⏳ Обрабатываю...", today,
-        )
+        try:
+            report = await run_with_progress(
+                processor.process_daily, status_msg, "⏳ Обрабатываю...", today,
+            )
+        except BusyError as e:
+            await status_msg.edit_text(str(e))
+            return
         if "error" not in report:
             today_str = today.isoformat()
-            await asyncio.to_thread(
+            ok, reason = await asyncio.to_thread(
                 git.commit_and_push, f"chore: process daily {today_str}"
             )
+            if not ok:
+                report.setdefault("warnings", []).append(
+                    f"Vault not synced: {reason[:80]}",
+                )
         await _send_report_with_correction(message, status_msg, report, state)
         return
 
@@ -349,9 +371,14 @@ CRITICAL OUTPUT FORMAT:
 - Start with 📊 <b>Скорректированный отчёт</b>
 - Allowed tags: <b>, <i>, <code>, <s>, <u>"""
 
-    report = await run_with_progress(
-        processor.execute_prompt, status_msg, "⏳ Корректирую...", correction_prompt,
-    )
+    try:
+        report = await run_with_progress(
+            processor.execute_prompt, status_msg,
+            "⏳ Корректирую...", correction_prompt,
+        )
+    except BusyError as e:
+        await status_msg.edit_text(str(e))
+        return
 
     await state.clear()
     await _send_report_with_correction(message, status_msg, report, state)

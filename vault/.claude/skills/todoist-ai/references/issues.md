@@ -1,3 +1,10 @@
+---
+type: note
+title: GitHub Issues
+last_accessed: 2026-01-31
+relevance: 0.59
+tier: cold
+---
 # GitHub Issues
 
 Recent issues from the repository (18 total).

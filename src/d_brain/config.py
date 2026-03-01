@@ -35,6 +35,14 @@ class Settings(BaseSettings):
         default=False,
         description="Whether to allow access to all users (security risk!)",
     )
+    transcription_language: str = Field(
+        default="ru",
+        description="Deepgram transcription language (e.g. ru, en, multi)",
+    )
+    claude_timeout: int = Field(
+        default=1200,
+        description="Claude CLI subprocess timeout in seconds",
+    )
 
     @property
     def daily_path(self) -> Path:

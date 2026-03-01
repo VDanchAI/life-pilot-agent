@@ -3,10 +3,10 @@ set -e
 
 # PATH for systemd (claude, uv, npx in ~/.local/bin and node)
 export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
-export HOME="/home/ubuntu"
+# Set HOME if needed: export HOME="/home/ubuntu"
 
 # Paths
-PROJECT_DIR="/home/ubuntu/projects/agent-second-brain"
+PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 VAULT_DIR="$PROJECT_DIR/vault"
 ENV_FILE="$PROJECT_DIR/.env"
 
@@ -29,6 +29,24 @@ cd "$PROJECT_DIR"  # MCP configured for project root
 
 echo "=== d-brain processing for $TODAY ==="
 
+# ── ORIENT: skip if daily is empty ──
+DAILY_FILE="$VAULT_DIR/daily/$TODAY.md"
+if [ ! -f "$DAILY_FILE" ]; then
+    echo "# $TODAY" > "$DAILY_FILE"
+fi
+DAILY_SIZE=$(wc -c < "$DAILY_FILE" 2>/dev/null || echo "0")
+if [ "$DAILY_SIZE" -lt 50 ]; then
+    echo "ORIENT: daily/$TODAY.md is empty ($DAILY_SIZE bytes) — skipping Claude processing"
+    cd "$VAULT_DIR"
+    uv run .claude/skills/graph-builder/scripts/analyze.py 2>/dev/null || true
+    cd "$PROJECT_DIR"
+    git add -A
+    git commit -m "chore: process daily $TODAY" || true
+    git push || true
+    echo "=== Done (empty daily, graph-only) ==="
+    exit 0
+fi
+
 # Run Claude with --dangerously-skip-permissions and MCP
 REPORT=$(claude --print --dangerously-skip-permissions \
     --mcp-config "$PROJECT_DIR/mcp-config.json" \
@@ -38,6 +56,12 @@ REPORT=$(claude --print --dangerously-skip-permissions \
 echo "=== Claude output ==="
 echo "$REPORT"
 echo "===================="
+
+# ── POST: graph rebuild + memory decay (non-critical) ──
+cd "$VAULT_DIR"
+uv run .claude/skills/graph-builder/scripts/analyze.py 2>/dev/null || echo "Graph rebuild failed (non-critical)"
+python3 .claude/skills/agent-memory/scripts/memory-engine.py decay . 2>/dev/null || echo "Memory decay failed (non-critical)"
+cd "$PROJECT_DIR"
 
 # Git commit with error reporting to Telegram
 git add -A

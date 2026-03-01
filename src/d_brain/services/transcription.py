@@ -10,8 +10,9 @@ logger = logging.getLogger(__name__)
 class DeepgramTranscriber:
     """Service for transcribing audio using Deepgram Nova-3."""
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, language: str = "ru") -> None:
         self.client = AsyncDeepgramClient(api_key=api_key)
+        self.language = language
 
     async def transcribe(self, audio_bytes: bytes) -> str:
         """Transcribe audio bytes to text.
@@ -30,7 +31,7 @@ class DeepgramTranscriber:
         response = await self.client.listen.v1.media.transcribe_file(
             request=audio_bytes,
             model="nova-3",
-            language="ru",
+            language=self.language,
             punctuate=True,
             smart_format=True,
         )

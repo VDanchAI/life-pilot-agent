@@ -9,7 +9,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from d_brain.bot.components.task_keyboard import create_task_keyboard
-from d_brain.bot.progress import run_with_progress
+from d_brain.bot.progress import BusyError, run_with_progress
 from d_brain.bot.utils import send_formatted_report
 from d_brain.services.factory import get_git, get_processor, get_todoist
 
@@ -28,14 +28,22 @@ async def cmd_weekly(message: Message) -> None:
     processor = get_processor()
     git = get_git()
 
-    report = await run_with_progress(
-        processor.generate_weekly, status_msg,
-        "⏳ Генерирую дайджест...",
-    )
+    try:
+        report = await run_with_progress(
+            processor.generate_weekly, status_msg,
+            "⏳ Генерирую дайджест...",
+        )
+    except BusyError as e:
+        await status_msg.edit_text(str(e))
+        return
 
     # Commit any changes (weekly goal updates, etc)
     if "error" not in report:
-        await asyncio.to_thread(git.commit_and_push, "chore: weekly digest")
+        ok, reason = await asyncio.to_thread(
+            git.commit_and_push, "chore: weekly digest",
+        )
+        if not ok:
+            report.setdefault("warnings", []).append(f"Vault not synced: {reason[:80]}")
 
     await send_formatted_report(status_msg, report)
 

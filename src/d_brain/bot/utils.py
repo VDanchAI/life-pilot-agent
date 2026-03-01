@@ -61,7 +61,9 @@ async def transcribe_voice(bot: Bot, message: "Message") -> str | None:
     from d_brain.services.transcription import DeepgramTranscriber
 
     settings = get_settings()
-    transcriber = DeepgramTranscriber(settings.deepgram_api_key)
+    transcriber = DeepgramTranscriber(
+        settings.deepgram_api_key, settings.transcription_language,
+    )
     try:
         audio_bytes, _ = await download_telegram_file(
             bot, message.voice.file_id

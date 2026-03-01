@@ -233,18 +233,65 @@ CRITICAL OUTPUT FORMAT:
 
         return self.runner.run(prompt, "Claude processing")
 
+    def _read_coaching_context(self, max_chars: int = 2000) -> str:
+        """Read vault/goals/coaching_context.md, capped at max_chars."""
+        ctx_path = self.vault_path / "goals" / "coaching_context.md"
+        if not ctx_path.exists():
+            return ""
+        try:
+            return ctx_path.read_text(encoding="utf-8")[:max_chars]
+        except Exception:
+            logger.warning("Could not read coaching_context.md")
+            return ""
+
+    def _get_habit_actions_section(self) -> str:
+        """Extract daily behavior actions from coaching_context table for /plan."""
+        ctx_path = self.vault_path / "goals" / "coaching_context.md"
+        if not ctx_path.exists():
+            return ""
+        try:
+            content = ctx_path.read_text(encoding="utf-8")
+        except Exception:
+            return ""
+
+        # Parse markdown table rows: | outcome | behavior |
+        behaviors: list[str] = []
+        in_table = False
+        for line in content.splitlines():
+            if "Текущие цели и ежедневные действия" in line:
+                in_table = True
+                continue
+            if in_table:
+                if line.startswith("|") and "---" not in line and "Цель" not in line:
+                    cols = [c.strip() for c in line.strip("|").split("|")]
+                    if len(cols) >= 2 and cols[1]:
+                        behaviors.append(f"• {cols[1]}")
+                elif in_table and line.startswith("##"):
+                    break
+
+        if not behaviors:
+            return ""
+        return "🎯 Habit Actions:\n" + "\n".join(behaviors) + "\n\n"
+
     def execute_prompt(self, user_prompt: str) -> dict[str, Any]:
         """Execute arbitrary prompt with Claude."""
         today = date.today()
 
         todoist_ref = self.runner.load_todoist_reference()
 
+        coaching_ctx = self._read_coaching_context()
+        coaching_section = (
+            f"\n=== COACHING CONTEXT ===\n{coaching_ctx}\n=== END CONTEXT ===\n"
+            if coaching_ctx
+            else ""
+        )
+
         prompt = f"""Ты - персональный ассистент d-brain.
 
 CONTEXT:
 - Текущая дата: {today}
 - Vault path: {self.vault_path}
-
+{coaching_section}
 === TODOIST REFERENCE ===
 {todoist_ref}
 === END REFERENCE ===
@@ -272,6 +319,213 @@ EXECUTION:
 3. Return HTML status report with results"""
 
         return self.runner.run(prompt, "Claude execution")
+
+    def chat_with_coach(self, history: list[dict[str, str]]) -> dict[str, Any]:
+        """Send next message to Claude in coach mode with full conversation history."""
+        today = date.today()
+        coaching_ctx = self._read_coaching_context()
+
+        history_text = "\n".join(
+            f"{'Пользователь' if m['role'] == 'user' else 'Коуч'}: {m['content']}"
+            for m in history[:-1]
+        )
+        last_message = history[-1]["content"] if history else ""
+
+        prompt = f"""Сегодня {today}. Ты — персональный коуч пользователя.
+
+ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ (coaching context):
+{coaching_ctx}
+
+ИСТОРИЯ РАЗГОВОРА:
+{history_text}
+
+НОВОЕ СООБЩЕНИЕ:
+{last_message}
+
+ПРАВИЛА:
+- Отвечай как живой коуч, не как ассистент-исполнитель
+- Используй профиль — ссылайся на цели и ежедневные действия пользователя
+- Сначала понять, потом советовать
+- Задавай один точный вопрос если нужно прояснить
+- Если момент подходит для структурированной рефлексии — предложи GROW
+- Обычный ответ: 2-4 предложения
+
+CRITICAL OUTPUT FORMAT:
+- Return ONLY raw HTML for Telegram (parse_mode=HTML)
+- NO markdown: no **, no ##, no ```, no -
+- Start directly with ответом (без префикса "Коуч:")
+- Allowed tags: <b>, <i>, <u>"""
+
+        return self.runner.run(prompt, "Coach chat")
+
+    def save_coach_insights(self, history: list[dict[str, str]]) -> dict[str, Any]:
+        """Summarize coach session, update coaching_context, save to daily vault."""
+        import json as _json
+        from datetime import datetime
+
+        today = date.today()
+        coaching_ctx = self._read_coaching_context()
+
+        history_text = "\n".join(
+            f"{'Пользователь' if m['role'] == 'user' else 'Коуч'}: {m['content']}"
+            for m in history
+        )
+
+        prompt = f"""Проанализируй коуч-сессию и выдели инсайты для обновления профиля.
+
+ТЕКУЩИЙ ПРОФИЛЬ:
+{coaching_ctx}
+
+СЕССИЯ:
+{history_text}
+
+Верни JSON:
+{{
+  "energy_additions": ["что нового узнали про источники энергии — если есть"],
+  "flag_additions": ["новые паттерны или триггеры для раздела Флаги — если есть"],
+  "daily_note": "1-2 предложения: суть сессии для дневника"
+}}
+
+Если ничего нового не выявлено — оставь списки пустыми.
+CRITICAL OUTPUT FORMAT: только валидный JSON без markdown."""
+
+        result = self.runner.run(prompt, "Coach insights")
+        if "error" in result:
+            return result
+
+        raw = result.get("report", "")
+        try:
+            from services.grow import _parse_json  # type: ignore[import]
+            data = _parse_json(raw)
+        except Exception:
+            import json as _json2
+            import re as _re
+            m = _re.search(r'\{[\s\S]*\}', raw)
+            try:
+                data = _json2.loads(m.group()) if m else {}
+            except Exception:
+                data = {}
+
+        ctx_path = self.vault_path / "goals" / "coaching_context.md"
+        if ctx_path.exists() and data:
+            content = ctx_path.read_text(encoding="utf-8")
+            for item in data.get("energy_additions", []):
+                if item and item not in content:
+                    content = content.replace(
+                        "## Что даёт энергию\n",
+                        f"## Что даёт энергию\n- {item}\n",
+                    )
+            for item in data.get("flag_additions", []):
+                if item and item not in content:
+                    content = content.replace(
+                        "## Флаги (когда нужно пнуть)\n",
+                        f"## Флаги (когда нужно пнуть)\n- {item}\n",
+                    )
+            ctx_path.write_text(content, encoding="utf-8")
+
+        # Append note to daily vault
+        note = data.get("daily_note", "")
+        if note:
+            daily_path = self.vault_path / "daily" / f"{today.isoformat()}.md"
+            ts = datetime.now().strftime("%H:%M")
+            try:
+                with daily_path.open("a", encoding="utf-8") as f:
+                    f.write(f"\n**{ts} [coach]** {note}\n")
+            except Exception:
+                logger.warning("Could not append coach note to daily vault")
+
+        return {
+            "report": (
+                f"✅ <b>Инсайты сохранены</b>\n\n"
+                f"<i>{_json.dumps(data, ensure_ascii=False, indent=2)}</i>"
+                if data else
+                "✅ Coach Mode завершён. Ничего нового в профиль не добавлено."
+            )
+        }
+
+    def zoom_in(self) -> dict[str, Any]:
+        """Zoom In — concrete actions for today based on coaching context."""
+        today = date.today()
+
+        coaching_ctx = self._read_coaching_context()
+
+        weekly_goals = ""
+        weekly_path = self.vault_path / "goals" / "3-weekly.md"
+        if weekly_path.exists():
+            try:
+                weekly_goals = weekly_path.read_text(encoding="utf-8")[:1500]
+            except Exception:
+                pass
+
+        prompt = f"""Сегодня {today}. Zoom in — конкретные действия.
+
+COACHING CONTEXT (ежедневные habit actions):
+{coaching_ctx}
+
+НЕДЕЛЬНЫЕ ЦЕЛИ:
+{weekly_goals}
+
+ЗАДАЧА: Дай конкретный план действий на сегодня.
+- 3-5 конкретных шагов из ежедневных habit actions
+- Что сделать прямо сейчас (первый шаг)
+- Убери всё лишнее — только то что двигает к целям
+
+CRITICAL OUTPUT FORMAT:
+- Return ONLY raw HTML for Telegram (parse_mode=HTML)
+- NO markdown: no **, no ##, no ```, no tables, no -
+- Start with 🎯 <b>Zoom In — что делать сейчас</b>
+- Allowed tags: <b>, <i>, <code>, <s>, <u>
+- Be concise - Telegram has 4096 char limit"""
+
+        return self.runner.run(prompt, "Zoom In")
+
+    def zoom_out(self) -> dict[str, Any]:
+        """Zoom Out — big picture vision and main annual goals."""
+        today = date.today()
+
+        vision = ""
+        vision_path = self.vault_path / "goals" / "0-vision-3y.md"
+        if vision_path.exists():
+            try:
+                vision = vision_path.read_text(encoding="utf-8")[:1500]
+            except Exception:
+                pass
+
+        yearly_goals = ""
+        yearly_path = self.vault_path / "goals" / f"1-yearly-{today.year}.md"
+        if yearly_path.exists():
+            try:
+                yearly_goals = yearly_path.read_text(encoding="utf-8")[:1500]
+            except Exception:
+                pass
+
+        coaching_ctx = self._read_coaching_context(max_chars=1500)
+
+        prompt = f"""Сегодня {today}. Режим zoom out — нужна большая картина и фокус.
+
+VISION (3 года):
+{vision}
+
+ГОДОВЫЕ ЦЕЛИ ({today.year}):
+{yearly_goals}
+
+COACHING CONTEXT:
+{coaching_ctx}
+
+ЗАДАЧА: Напомни большую картину и верни фокус.
+- Зачем всё это? (vision, смысл)
+- 2-3 главные цели на год
+- Как то, над чем работает сейчас, связано с большой картиной
+- Один вопрос, который возвращает смысл
+
+CRITICAL OUTPUT FORMAT:
+- Return ONLY raw HTML for Telegram (parse_mode=HTML)
+- NO markdown: no **, no ##, no ```, no tables, no -
+- Start with 🔭 <b>Zoom Out — большая картина</b>
+- Allowed tags: <b>, <i>, <code>, <s>, <u>
+- Be concise - Telegram has 4096 char limit"""
+
+        return self.runner.run(prompt, "Zoom Out")
 
     def generate_weekly(self) -> dict[str, Any]:
         """Generate weekly digest with Claude."""
@@ -340,6 +594,111 @@ CRITICAL OUTPUT FORMAT:
 - Be concise - Telegram has 4096 char limit"""
 
         return self.runner.run(prompt, "Monthly check")
+
+    def generate_next_monthly_goals(
+        self,
+        summary: str,
+        period: str,
+        process_goals: list[dict[str, str]],
+    ) -> dict[str, Any]:
+        """Generate new 2-monthly.md content based on GROW monthly insights.
+
+        Args:
+            summary: GROW monthly session summary.
+            period:  Current period string, e.g. "2026-03".
+            process_goals: List of {outcome, behavior} from GROW analysis.
+
+        Returns:
+            dict with key "content" containing the markdown for 2-monthly.md.
+        """
+        today = date.today()
+
+        yearly_context = ""
+        yearly_path = self.vault_path / "goals" / f"1-yearly-{today.year}.md"
+        if yearly_path.exists():
+            try:
+                yearly_context = yearly_path.read_text(encoding="utf-8")[:2000]
+            except Exception:
+                pass
+
+        goals_block = ""
+        if process_goals:
+            rows = "\n".join(
+                f"- **{g.get('outcome', '')}** → {g.get('behavior', '')}"
+                for g in process_goals
+            )
+            goals_block = f"\n\nEжедневные действия из GROW:\n{rows}"
+
+        prompt = f"""GROW-рефлексия {period}. Сгенерируй файл целей на месяц.
+
+GROW ИТОГ:
+{summary}{goals_block}
+
+ГОДОВЫЕ ЦЕЛИ (контекст):
+{yearly_context}
+
+Формат файла (только markdown, без ```markdown```):
+
+---
+type: monthly
+period: {period}
+updated: {today.isoformat()}
+---
+
+# Monthly Focus — {period}
+
+## Top 3 Priorities
+### Priority 1: [название]
+[1-2 предложения что и зачем]
+
+**Why it matters:** [одна строка]
+
+**Key Actions:**
+- [ ] ...
+
+---
+
+### Priority 2: [название]
+...
+
+---
+
+### Priority 3: [название]
+...
+
+## NOT Doing This Month
+- ...
+
+---
+
+## Weekly Check-ins
+
+| Week | Progress | Blockers | Adjustments |
+|------|----------|----------|-------------|
+| W1 | | | |
+| W2 | | | |
+| W3 | | | |
+| W4 | | | |
+
+---
+
+## Links
+
+- [[0-vision-3y]] - 3-year vision
+- [[1-yearly-{today.year}]] - Annual goals
+- [[3-weekly]] - This week's plan
+
+---
+
+*Next Review: End of {period}*
+
+Верни ТОЛЬКО markdown без ```markdown```.
+Приоритеты — конкретные, из GROW-рефлексии."""
+
+        result = self.runner.run(prompt, "Generate monthly goals")
+        # runner returns dict with "report"; rename to "content"
+        content = result.get("report", "")
+        return {"content": content}
 
     # ── Evening / Morning plans ──────────────────────────────────────
 
@@ -641,5 +1000,10 @@ CRITICAL OUTPUT FORMAT:
         total_all = len(all_tasks)
         if not events and total_all == 0:
             plan += "Событий и задач нет — свободный день! 🎉\n"
+
+        # Inject habit actions from coaching_context
+        habit_section = self._get_habit_actions_section()
+        if habit_section:
+            plan += habit_section
 
         return ClaudeRunner.truncate_for_telegram(plan)

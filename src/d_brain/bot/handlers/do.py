@@ -8,7 +8,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from d_brain.bot.progress import run_with_progress
+from d_brain.bot.progress import BusyError, run_with_progress
 from d_brain.bot.states import DoCommandState
 from d_brain.bot.utils import send_formatted_report, transcribe_voice
 from d_brain.services.factory import get_processor
@@ -61,9 +61,13 @@ async def process_request(message: Message, prompt: str) -> None:
 
     processor = get_processor()
 
-    report = await run_with_progress(
-        processor.execute_prompt, status_msg,
-        "⏳ Выполняю...", prompt,
-    )
+    try:
+        report = await run_with_progress(
+            processor.execute_prompt, status_msg,
+            "⏳ Выполняю...", prompt,
+        )
+    except BusyError as e:
+        await status_msg.edit_text(str(e))
+        return
 
     await send_formatted_report(status_msg, report)

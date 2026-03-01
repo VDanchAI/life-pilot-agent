@@ -1,3 +1,10 @@
+---
+type: note
+title: Wiki-Links Building
+last_accessed: 2026-01-31
+relevance: 0.59
+tier: cold
+---
 # Wiki-Links Building
 
 ## Purpose

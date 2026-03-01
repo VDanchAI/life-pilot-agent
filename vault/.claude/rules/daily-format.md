@@ -1,4 +1,8 @@
 ---
+type: note
+last_accessed: 2026-01-31
+relevance: 0.59
+tier: cold
 paths: "daily/**/*.md"
 ---
 

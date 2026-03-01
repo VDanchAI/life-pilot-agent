@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=oneshot
-User=ubuntu
-WorkingDirectory=/home/ubuntu/projects/agent-second-brain
-ExecStart=/home/ubuntu/.local/bin/uv run python scripts/weekly.py
-EnvironmentFile=/home/ubuntu/projects/agent-second-brain/.env
+User=shima
+WorkingDirectory=/home/shima/projects/agent-second-brain
+ExecStart=/home/shima/.local/bin/uv run python scripts/weekly.py
+EnvironmentFile=/home/shima/projects/agent-second-brain/.env
 StandardOutput=journal
 StandardError=journal

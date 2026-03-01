@@ -6,8 +6,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytz
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build  # type: ignore[import-not-found]
 
 
 def get_calendar_events(
@@ -34,11 +32,14 @@ def get_calendar_events(
 
     if not token_path.exists():
         raise FileNotFoundError(f"Token not found: {token_path}")
-    
+
+    from google.oauth2.credentials import Credentials  # type: ignore[import-untyped]
+    from googleapiclient.discovery import build  # type: ignore[import-untyped]
+
     with open(token_path) as f:
         creds_data = json.load(f)
     creds = Credentials.from_authorized_user_info(creds_data)
-    
+
     service = build('calendar', 'v3', credentials=creds)
     
     tz = pytz.timezone(timezone)

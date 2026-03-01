@@ -60,29 +60,30 @@ class VaultGit:
         logger.info("Committed: %s", message)
         return True
 
-    def push(self) -> bool:
+    def push(self) -> tuple[bool, str]:
         """Push to remote.
 
         Returns:
-            True if push was successful
+            Tuple of (success, reason).
         """
         result = self._run_git("push")
         if result.returncode != 0:
-            logger.error("Git push failed: %s", result.stderr)
-            return False
+            reason = result.stderr.strip() or f"exit code {result.returncode}"
+            logger.error("Git push failed: %s", reason)
+            return False, reason
 
         logger.info("Pushed to remote")
-        return True
+        return True, ""
 
-    def commit_and_push(self, message: str) -> bool:
+    def commit_and_push(self, message: str) -> tuple[bool, str]:
         """Commit all changes and push.
 
         Args:
             message: Commit message
 
         Returns:
-            True if successful
+            Tuple of (success, reason). No changes is not an error.
         """
         if self.commit_changes(message):
             return self.push()
-        return True  # No changes is not an error
+        return True, ""

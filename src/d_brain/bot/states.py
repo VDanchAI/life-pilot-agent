@@ -40,3 +40,10 @@ class RecallStates(StatesGroup):
     """States for /recall command flow."""
 
     waiting_query = State()  # Waiting for search query (ТЗ 5)
+
+
+class CoachStates(StatesGroup):
+    """States for Coach Mode conversational flow."""
+
+    chatting = State()    # Active coaching dialogue
+    saving = State()      # Waiting for confirm/skip after "стоп"

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from html import escape as html_escape
 
 from aiogram import Bot, F, Router
@@ -21,10 +22,11 @@ from aiogram.types import (
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from d_brain.bot.progress import BusyError, run_with_progress
 from d_brain.bot.states import GrowStates
 from d_brain.bot.utils import transcribe_voice
 from d_brain.config import get_settings
-from d_brain.services.factory import get_git
+from d_brain.services.factory import get_git, get_processor
 from d_brain.services.grow import (
     analyze_answers,
     delete_draft,
@@ -220,11 +222,14 @@ async def _finalize_session(bot: Bot, chat_id: int, state: FSMContext) -> None:
             session_type, period, "Сессия пропущена", questions, answers, vault_path,
         )
         git = get_git()
-        await asyncio.to_thread(
+        ok, reason = await asyncio.to_thread(
             git.commit_and_push, f"GROW {session_type} reflection {period} (skipped)",
         )
         await state.clear()
-        await bot.send_message(chat_id, "Все вопросы пропущены. Сессия завершена.")
+        msg = "Все вопросы пропущены. Сессия завершена."
+        if not ok:
+            msg += f"\n\n\u26a0\ufe0f Vault not synced: {reason[:80]}"
+        await bot.send_message(chat_id, msg)
         return
 
     # Claude #2 — analysis
@@ -233,10 +238,12 @@ async def _finalize_session(bot: Bot, chat_id: int, state: FSMContext) -> None:
 
     summary: str = result.get("summary", "")
     goal_updates = result.get("goal_updates")
+    process_goals: list[dict] = result.get("process_goals") or []
 
     # Store in FSM for confirm/correct flow
     data["summary"] = summary
     data["goal_updates"] = goal_updates
+    data["process_goals"] = process_goals
     await state.set_data(data)
     await state.set_state(GrowStates.confirming)
 
@@ -410,11 +417,21 @@ async def handle_question_action(
     if new_index >= len(questions):
         # Check deferred
         if deferred_questions:
-            # Re-queue deferred at the end (keep their deferred_count)
-            questions.extend(deferred_questions)
-            data["questions"] = questions
+            # Re-queue deferred at the end — deduplicate to prevent accumulation
+            # on session resume after restart
+            already_queued = {q["id"] for q in questions}
+            to_add = [q for q in deferred_questions if q["id"] not in already_queued]
+            if to_add:
+                questions.extend(to_add)
+                data["questions"] = questions
             data["deferred_questions"] = []
-            # new_index still valid — it points to first deferred
+            # new_index still valid — it points to first deferred (if any added)
+            if not to_add:
+                # All deferred already in queue (e.g. after resume) — finalize
+                await state.set_data(data)
+                save_draft(session_type, period, data, vault_path)
+                await _finalize_session(bot, msg.chat.id, state)
+                return
         else:
             # All done — finalize
             await state.set_data(data)
@@ -455,12 +472,52 @@ async def handle_confirm(callback: CallbackQuery, bot: Bot, state: FSMContext) -
     questions: list[dict] = data.get("questions", [])
     answers: dict = data.get("answers", {})
     goal_updates = data.get("goal_updates")
+    process_goals: list[dict] = data.get("process_goals") or []
 
     settings = get_settings()
     vault_path = settings.vault_path
 
     # Save final reflection markdown
-    finalize_reflection(session_type, period, summary, questions, answers, vault_path)
+    finalize_reflection(
+        session_type, period, summary, questions, answers, vault_path, process_goals,
+    )
+
+    # For monthly sessions: archive old 2-monthly.md and generate new one
+    if session_type == "monthly":
+        monthly_path = vault_path / "goals" / "2-monthly.md"
+        if monthly_path.exists():
+            # Detect period of file being archived from frontmatter
+            old_text = monthly_path.read_text(encoding="utf-8")
+            m = re.search(r"^period:\s*(\S+)", old_text, re.MULTILINE)
+            old_period = m.group(1) if m else f"{period}-prev"
+            archive_path = vault_path / "goals" / f"2-monthly-{old_period}.md"
+            archive_path.write_text(old_text, encoding="utf-8")
+            logger.info("Archived 2-monthly.md → 2-monthly-%s.md", old_period)
+
+        # Generate new 2-monthly.md via Claude
+        status_new = await bot.send_message(
+            msg.chat.id, "⏳ Генерирую план на месяц..."
+        )
+        processor = get_processor()
+        try:
+            gen_result = await run_with_progress(
+                processor.generate_next_monthly_goals,
+                status_new, "⏳ Генерирую...",
+                summary, period, process_goals,
+            )
+            new_content = gen_result.get("content", "")
+            if new_content:
+                monthly_path.write_text(new_content, encoding="utf-8")
+                await status_new.edit_text(
+                    f"📅 <b>2-monthly.md обновлён</b> (период {period})\n"
+                    f"Архив: <code>2-monthly-{old_period}.md</code>"
+                    if monthly_path.exists() else
+                    f"📅 <b>2-monthly.md создан</b> (период {period})"
+                )
+            else:
+                await status_new.edit_text("⚠️ Не удалось сгенерировать план на месяц")
+        except BusyError as e:
+            await status_new.edit_text(str(e))
 
     # Apply goal updates if present
     if goal_updates and isinstance(goal_updates, dict):
@@ -472,18 +529,22 @@ async def handle_confirm(callback: CallbackQuery, bot: Bot, state: FSMContext) -
 
     # Git commit
     git = get_git()
+    sync_warning = ""
     try:
-        await asyncio.to_thread(
+        ok, reason = await asyncio.to_thread(
             git.commit_and_push, f"GROW {session_type} reflection {period}",
         )
+        if not ok:
+            sync_warning = f"\n\n\u26a0\ufe0f Vault not synced: {reason[:80]}"
     except Exception:
         logger.exception("Git commit failed after GROW finalize")
+        sync_warning = "\n\n\u26a0\ufe0f Git commit failed"
 
     await state.clear()
     await bot.send_message(
         msg.chat.id,
         f"\u2705 GROW-рефлексия <b>{html_escape(session_type)}</b> "
-        f"за <code>{html_escape(period)}</code> сохранена.",
+        f"за <code>{html_escape(period)}</code> сохранена.{sync_warning}",
     )
 
 
@@ -577,9 +638,11 @@ async def handle_grow_correcting(message: Message, bot: Bot, state: FSMContext) 
 
     summary: str = result.get("summary", "")
     goal_updates = result.get("goal_updates")
+    process_goals: list[dict] = result.get("process_goals") or []
 
     data["summary"] = summary
     data["goal_updates"] = goal_updates
+    data["process_goals"] = process_goals
     data["answers"] = answers
     await state.set_data(data)
     await state.set_state(GrowStates.confirming)
