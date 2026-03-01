@@ -228,10 +228,10 @@ TRANSCRIPTION_LANGUAGE=ru  # Язык транскрипции Deepgram (default
 
 ```bash
 # Быстрая установка на VPS
-curl -fsSL https://raw.githubusercontent.com/USER/agent-second-brain/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/USER/life-pilot-agent/main/bootstrap.sh | bash
 
 # Или вручную
-git clone <repo> && cd agent-second-brain
+git clone <repo> && cd life-pilot-agent
 cp .env.example .env     # Заполнить токены
 uv sync                  # Установить зависимости
 ```

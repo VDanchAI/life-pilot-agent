@@ -24,7 +24,7 @@ class Settings(BaseSettings):
         description="Path to Obsidian vault directory",
     )
     google_token_path: Path = Field(
-        default=Path("~/agent-second-brain/token.json"),
+        default=Path("~/life-pilot-agent/token.json"),
         description="Path to Google OAuth token JSON file",
     )
     allowed_user_ids: list[int] = Field(

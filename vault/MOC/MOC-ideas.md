@@ -2,11 +2,16 @@
 
 ## Recent
 
-- [[MOC-self-deception]] — САМООБМАН: экосистема контента о формах самообмана (2026-02-01)
+<!-- Recent ideas will appear here after processing -->
 
 ## By Topic
 
-### Контент и психология
-- [[MOC-self-deception]] — раздел про все формы человеческого самообмана
+### Topic 1
+<!-- Links to related ideas -->
 
-<!-- Ideas organized by topic -->
+### Topic 2
+<!-- Links to related ideas -->
+
+---
+
+*Updated automatically by the processor*
