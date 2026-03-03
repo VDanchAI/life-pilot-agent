@@ -21,9 +21,13 @@ _TZ = pytz.timezone("Europe/Kyiv")
 class ClaudeProcessor:
     """Service for triggering Claude Code processing."""
 
-    def __init__(self, vault_path: Path, todoist_api_key: str = "") -> None:
+    def __init__(
+        self, vault_path: Path, todoist_api_key: str = "",
+        coach_model: str = "",
+    ) -> None:
         self.vault_path = Path(vault_path)
         self.todoist_api_key = todoist_api_key
+        self.coach_model = coach_model
         self.runner = ClaudeRunner(vault_path, todoist_api_key)
         self.todoist: TodoistService | None = (
             TodoistService(todoist_api_key) if todoist_api_key else None
@@ -320,47 +324,174 @@ EXECUTION:
 
         return self.runner.run(prompt, "Claude execution")
 
+    def _read_diary_recent(self, max_chars: int = 800) -> str:
+        """Read today's and yesterday's daily entries, capped at max_chars."""
+        from datetime import timedelta
+        lines: list[str] = []
+        for delta in (0, 1):
+            day = date.today() - timedelta(days=delta)
+            path = self.vault_path / "daily" / f"{day.isoformat()}.md"
+            if path.exists():
+                try:
+                    content = path.read_text(encoding="utf-8").strip()
+                    if content:
+                        lines.append(f"[{day.isoformat()}]\n{content}")
+                except Exception:
+                    pass
+        combined = "\n\n".join(lines)
+        return combined[:max_chars] if combined else ""
+
+    def _read_last_coach_session(self) -> str:
+        """Return summary of the last coach session from coach_sessions.jsonl."""
+        sessions_path = self.vault_path / "sessions" / "coach_sessions.jsonl"
+        if not sessions_path.exists():
+            return ""
+        try:
+            lines = [
+                l.strip()
+                for l in sessions_path.read_text(encoding="utf-8").splitlines()
+                if l.strip()
+            ]
+            if not lines:
+                return ""
+            last = json.loads(lines[-1])
+            parts = [f"Дата: {last.get('session_date', '?')}"]
+            if last.get("main_topic"):
+                parts.append(f"Тема: {last['main_topic']}")
+            insights = last.get("insights", [])
+            if insights:
+                parts.append("Инсайты: " + "; ".join(insights[:3]))
+            decisions = last.get("decisions", [])
+            if decisions:
+                parts.append("Решения: " + "; ".join(decisions[:2]))
+            return "\n".join(parts)
+        except Exception:
+            return ""
+
     def chat_with_coach(self, history: list[dict[str, str]]) -> dict[str, Any]:
         """Send next message to Claude in coach mode with full conversation history."""
         today = date.today()
         coaching_ctx = self._read_coaching_context()
+        diary_recent = self._read_diary_recent()
+        last_session = self._read_last_coach_session()
 
         history_text = "\n".join(
             f"{'Пользователь' if m['role'] == 'user' else 'Коуч'}: {m['content']}"
             for m in history[:-1]
         )
         last_message = history[-1]["content"] if history else ""
+        is_first = len(history) == 1
 
-        prompt = f"""Сегодня {today}. Ты — персональный коуч пользователя.
+        first_message_hint = ""
+        if is_first:
+            first_message_hint = """
+ДЕТЕКЦИЯ ПЕРВОГО СООБЩЕНИЯ — выбери первый ход по типу:
+- Выгрузка (эмоции, длинное, несколько тем) → Отражение чувства. БЕЗ вопроса.
+- Запрос на решение ("не могу выбрать", конкретная развилка) → "Между чем и чем выбираешь?"
+- Запрос на поддержку ("не тяну", "устал от") → Валидация + "Что сейчас самое тяжёлое?"
+- Быстрый вопрос (короткий конкретный) → Короткий конкретный ответ. Не раздувать.
+- Обновление/отчёт ("сделал X") → Признание + "Как ощущения?"
+НЕ начинай с "Привет, о чём хочешь поговорить?"
+"""
 
-ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ (coaching context):
-{coaching_ctx}
+        diary_block = (
+            f"\nДНЕВНИК (последние записи):\n{diary_recent}\n"
+            if diary_recent else ""
+        )
+        last_session_block = (
+            f"\nПОСЛЕДНЯЯ КОУЧ-СЕССИЯ:\n{last_session}\n"
+            if last_session else ""
+        )
 
-ИСТОРИЯ РАЗГОВОРА:
+        prompt = f"""Сегодня {today}. Ты — умный друг, который умеет слушать и задавать правильные вопросы. НЕ коуч с сертификатом, НЕ ассистент-исполнитель. Собеседник с навыками.
+
+ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ:
+{coaching_ctx}{diary_block}{last_session_block}
+ПРАВИЛО КОНТЕКСТА: НЕ демонстрируй знание профиля/дневника в каждом сообщении. Используй только когда тема органично пересекается. Без ссылки на источник: "Это ведь связано с [цель]?"
+
+ИСТОРИЯ:
 {history_text}
 
 НОВОЕ СООБЩЕНИЕ:
 {last_message}
+{first_message_hint}
+STATE MACHINE — определи состояние по сигналам в НОВОМ СООБЩЕНИИ:
 
-ПРАВИЛА:
-- Отвечай как живой коуч, не как ассистент-исполнитель
-- Используй профиль — ссылайся на цели и ежедневные действия пользователя
-- Сначала понять, потом советовать
-- Задавай один точный вопрос если нужно прояснить
-- Если момент подходит для структурированной рефлексии — предложи GROW
-- Обычный ответ: 2-4 предложения
+ПОТОК (выгружает, прыгает между темами, думает вслух):
+  Сигналы: длинное сообщение, несколько тем, "ну короче", эмоциональная речь
+  Ход: Отражение + мягкий уточняющий вопрос. Дать пространство. Не торопить к действию.
 
-CRITICAL OUTPUT FORMAT:
-- Return ONLY raw HTML for Telegram (parse_mode=HTML)
-- NO markdown: no **, no ##, no ```, no -
-- Start directly with ответом (без префикса "Коуч:")
-- Allowed tags: <b>, <i>, <u>"""
+ФОКУС (крутит одну тему, сравнивает варианты):
+  Сигналы: возврат к одной теме, "не тяну"/"бесит"/"не уверен", конкретная ситуация
+  Ход: Углубление / Шкалирование ("от 1 до 10?") / Провокативный вопрос / Привязка к профилю
 
-        return self.runner.run(prompt, "Coach chat")
+ГОТОВНОСТЬ (появился инсайт, пользователь сам формулирует вывод):
+  Сигналы: "значит мне надо", "я понял что", "наверное стоит", "окей, я сделаю"
+  Ход: Закрепить + конкретизировать: "Что именно? Когда? Как поймёшь что сделал?"
 
-    def save_coach_insights(self, history: list[dict[str, str]]) -> dict[str, Any]:
+Смена темы = сброс в ПОТОК. Можно перескочить ПОТОК → ГОТОВНОСТЬ.
+
+ТЕХНИКИ (одна за ход):
+- Отражение: "Звучит как..." / "То есть для тебя..."
+- Уточняющий вопрос: один конкретный вопрос
+- Шкалирование: "Насколько это [важно/тяжело] от 1 до 10?"
+- Провокативный вопрос: "А если бы X не было — ты бы всё равно...?"
+- Пространство: "Это реально тяжело." — без вопроса
+- Закрепление: "Окей, то есть план: [переформулировать конкретно]."
+
+АНТИПАТТЕРНЫ:
+- Два вопроса в одном сообщении
+- Советы без запроса — задай вопрос, который подведёт к решению
+- "Расскажи подробнее?" без направления
+- "Как ты себя чувствуешь?" — замени на конкретный вопрос
+- "Я вижу из твоего профиля, что..." — ощущение слежки
+- Вопрос про действие когда человек в ПОТОКЕ
+
+ФОРМАТ:
+- 2-4 предложения, до 800 символов
+- Без эмодзи (если пользователь не использует — ты тоже нет)
+- Без буллетов, заголовков, списков — это чат
+- Тёплый, прямой тон
+- Структура типичного ответа: [Отражение — 1 пред.] [Вопрос — 1 пред.]
+  Или только признание без вопроса (пространство)
+  Или закрепление + уточнение (готовность)
+
+Верни ТОЛЬКО текст ответа. HTML для Telegram, allowed tags: <b>, <i>, <u>."""
+
+        return self.runner.run(prompt, "Coach chat", model=self.coach_model)
+
+    def _patch_section_with_cap(
+        self, content: str, header: str, new_item: str, max_items: int = 15,
+    ) -> str:
+        """Add item to markdown list section, evict oldest if over cap."""
+        lines = content.splitlines()
+        section_start: int | None = None
+        item_lines: list[int] = []
+
+        for i, line in enumerate(lines):
+            if section_start is None:
+                if header in line:
+                    section_start = i
+            else:
+                if line.startswith("##") and i > section_start:
+                    break
+                if line.startswith("- "):
+                    item_lines.append(i)
+
+        if section_start is None:
+            return content
+
+        if len(item_lines) >= max_items and item_lines:
+            del lines[item_lines[0]]
+            # item_lines[0] > section_start always, so section_start unchanged
+
+        lines.insert(section_start + 1, f"- {new_item}")
+        return "\n".join(lines)
+
+    def save_coach_insights(
+        self, history: list[dict[str, str]], reflection_answer: str = "",
+    ) -> dict[str, Any]:
         """Summarize coach session, update coaching_context, save to daily vault."""
-        import json as _json
         from datetime import datetime
 
         today = date.today()
@@ -370,60 +501,95 @@ CRITICAL OUTPUT FORMAT:
             f"{'Пользователь' if m['role'] == 'user' else 'Коуч'}: {m['content']}"
             for m in history
         )
+        reflection_block = (
+            f"\nОТВЕТ НА ФИНАЛЬНЫЙ ВОПРОС:\n{reflection_answer}\n"
+            if reflection_answer else ""
+        )
 
-        prompt = f"""Проанализируй коуч-сессию и выдели инсайты для обновления профиля.
+        prompt = f"""Проанализируй коуч-сессию и извлеки структурированные данные.
 
 ТЕКУЩИЙ ПРОФИЛЬ:
 {coaching_ctx}
 
-СЕССИЯ:
-{history_text}
+СЕССИЯ ({len(history)} сообщений):
+{history_text}{reflection_block}
 
-Верни JSON:
+Верни валидный JSON без markdown:
 {{
-  "energy_additions": ["что нового узнали про источники энергии — если есть"],
-  "flag_additions": ["новые паттерны или триггеры для раздела Флаги — если есть"],
-  "daily_note": "1-2 предложения: суть сессии для дневника"
+  "entry_state": "ПОТОК|ФОКУС|ГОТОВНОСТЬ|НЕИЗВЕСТНО",
+  "main_topic": "краткое описание темы (1 строка)",
+  "insights": ["инсайт — слова пользователя, не твои интерпретации"],
+  "decisions": ["конкретное решение/шаг если был"],
+  "energy_updates": ["новый источник энергии если выявлен"],
+  "flag_updates": ["новый триггер/паттерн если выявлен"],
+  "daily_note": "1-2 предложения — суть сессии для дневника"
 }}
 
-Если ничего нового не выявлено — оставь списки пустыми.
-CRITICAL OUTPUT FORMAT: только валидный JSON без markdown."""
+Правила:
+- entry_state — по тональности первых 2-3 реплик пользователя
+- insights — только то что пользователь СКАЗАЛ, не твои интерпретации
+- decisions — конкретные действия ("перенесу задачу"), не намерения ("подумать")
+- Если ничего нового в секциях — оставь списки пустыми []
+- Только валидный JSON без ```json```"""
 
-        result = self.runner.run(prompt, "Coach insights")
+        result = self.runner.run(prompt, "Coach insights", model=self.coach_model)
         if "error" in result:
             return result
 
         raw = result.get("report", "")
+        data: dict[str, Any] = {}
         try:
-            from services.grow import _parse_json  # type: ignore[import]
-            data = _parse_json(raw)
-        except Exception:
-            import json as _json2
-            import re as _re
-            m = _re.search(r'\{[\s\S]*\}', raw)
+            text = raw.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text.rsplit("\n", 1)[0] if "\n" in text else text[:-3]
+            data = json.loads(text.strip())
+        except (json.JSONDecodeError, ValueError):
+            m = re.search(r'\{[\s\S]*\}', raw)
             try:
-                data = _json2.loads(m.group()) if m else {}
+                data = json.loads(m.group()) if m else {}
             except Exception:
                 data = {}
 
+        # Append to coach_sessions.jsonl
+        sessions_path = self.vault_path / "sessions" / "coach_sessions.jsonl"
+        sessions_path.parent.mkdir(parents=True, exist_ok=True)
+        session_record: dict[str, Any] = {
+            "session_date": today.isoformat(),
+            "session_id": f"coach-{datetime.now().strftime('%Y%m%dT%H%M%S')}",
+            "turns": len(history),
+            "entry_state": data.get("entry_state", "НЕИЗВЕСТНО"),
+            "main_topic": data.get("main_topic", ""),
+            "insights": data.get("insights", []),
+            "decisions": data.get("decisions", []),
+            "energy_updates": data.get("energy_updates", []),
+            "flag_updates": data.get("flag_updates", []),
+            "diary_note": data.get("daily_note", ""),
+        }
+        try:
+            with sessions_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(session_record, ensure_ascii=False) + "\n")
+        except Exception:
+            logger.warning("Could not append to coach_sessions.jsonl")
+
+        # Patch coaching_context.md with sliding window cap
         ctx_path = self.vault_path / "goals" / "coaching_context.md"
         if ctx_path.exists() and data:
             content = ctx_path.read_text(encoding="utf-8")
-            for item in data.get("energy_additions", []):
+            for item in data.get("energy_updates", []):
                 if item and item not in content:
-                    content = content.replace(
-                        "## Что даёт энергию\n",
-                        f"## Что даёт энергию\n- {item}\n",
+                    content = self._patch_section_with_cap(
+                        content, "## Что даёт энергию", item,
                     )
-            for item in data.get("flag_additions", []):
+            for item in data.get("flag_updates", []):
                 if item and item not in content:
-                    content = content.replace(
-                        "## Флаги (когда нужно пнуть)\n",
-                        f"## Флаги (когда нужно пнуть)\n- {item}\n",
+                    content = self._patch_section_with_cap(
+                        content, "## Флаги (когда нужно пнуть)", item,
                     )
             ctx_path.write_text(content, encoding="utf-8")
 
-        # Append note to daily vault
+        # Append diary note
         note = data.get("daily_note", "")
         if note:
             daily_path = self.vault_path / "daily" / f"{today.isoformat()}.md"
@@ -434,13 +600,133 @@ CRITICAL OUTPUT FORMAT: только валидный JSON без markdown."""
             except Exception:
                 logger.warning("Could not append coach note to daily vault")
 
+        if not data:
+            return {
+                "report": "✅ Coach Mode завершён. Ничего нового в профиль не добавлено."
+            }
+
+        parts = ["✅ <b>Инсайты сохранены</b>"]
+
+        if data.get("main_topic"):
+            parts.append(f"\n🎯 <b>Тема:</b> {data['main_topic']}")
+
+        insights = data.get("insights", [])
+        if insights:
+            parts.append("\n💡 <b>Инсайты:</b>")
+            for ins in insights:
+                parts.append(f"• {ins}")
+
+        decisions = data.get("decisions", [])
+        if decisions:
+            parts.append("\n✅ <b>Решения:</b>")
+            for dec in decisions:
+                parts.append(f"• {dec}")
+
+        flags = data.get("flag_updates", [])
+        if flags:
+            parts.append("\n🚩 <b>Флаги:</b>")
+            for fl in flags:
+                parts.append(f"• {fl}")
+
+        energy = data.get("energy_updates", [])
+        if energy:
+            parts.append("\n⚡ <b>Энергия:</b>")
+            for en in energy:
+                parts.append(f"• {en}")
+
+        if note:
+            parts.append(f"\n📝 <b>Заметка:</b>\n<i>{note}</i>")
+
+        return {"report": "\n".join(parts)}
+
+    def compact_coach_profile(self) -> dict[str, Any]:
+        """Monthly: read coach sessions JSONL for current month, regenerate profile."""
+        today = date.today()
+        month_prefix = today.strftime("%Y-%m")
+
+        sessions_path = self.vault_path / "sessions" / "coach_sessions.jsonl"
+        sessions_this_month: list[dict[str, Any]] = []
+        if sessions_path.exists():
+            try:
+                for line in sessions_path.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        record = json.loads(line)
+                        if record.get("session_date", "").startswith(month_prefix):
+                            sessions_this_month.append(record)
+                    except Exception:
+                        pass
+            except Exception:
+                logger.warning("Could not read coach_sessions.jsonl")
+
+        if not sessions_this_month:
+            logger.info("No coach sessions in %s — skipping compact", month_prefix)
+            return {"report": ""}
+
+        ctx_path = self.vault_path / "goals" / "coaching_context.md"
+        if not ctx_path.exists():
+            return {"error": "coaching_context.md not found"}
+
+        current_profile = ctx_path.read_text(encoding="utf-8")
+
+        sessions_text = "\n\n".join(
+            f"[{s.get('session_date')} / {s.get('entry_state', '?')}] "
+            f"{s.get('main_topic', '')}\n"
+            f"Инсайты: {'; '.join(s.get('insights', []))}\n"
+            f"Решения: {'; '.join(s.get('decisions', []))}\n"
+            f"Энергия: {'; '.join(s.get('energy_updates', []))}\n"
+            f"Флаги: {'; '.join(s.get('flag_updates', []))}"
+            for s in sessions_this_month
+        )
+
+        prompt = f"""Обнови профиль пользователя на основе коуч-сессий за {month_prefix}.
+
+ТЕКУЩИЙ ПРОФИЛЬ:
+{current_profile}
+
+СЕССИИ ЗА МЕСЯЦ ({len(sessions_this_month)} сессий):
+{sessions_text}
+
+ЗАДАЧА:
+1. Синтезируй паттерны из инсайтов и решений всех сессий
+2. Обнови секцию "Что даёт энергию" — добавь новое, убери повторы и устаревшее
+3. Обнови секцию "Флаги" — оставь подтверждённые паттерны, убери разовые
+4. Обнови "Текущие цели и ежедневные действия" если decisions указывают на изменения
+5. Сохрани структуру и заголовки файла без изменений
+6. Не более 15 пунктов суммарно в динамических секциях
+7. Обнови строку "Последнее обновление" на {today.isoformat()}
+
+Верни ТОЛЬКО обновлённый markdown файл без пояснений и без ```markdown```."""
+
+        # Backup before overwrite
+        backup_path = ctx_path.with_suffix(".md.bak")
+        try:
+            backup_path.write_text(current_profile, encoding="utf-8")
+        except Exception:
+            logger.warning("Could not backup coaching_context.md")
+
+        result = self.runner.run(
+            prompt, "Coach profile compact", model=self.coach_model,
+        )
+        if "error" in result:
+            return result
+
+        new_content = result.get("report", "")
+        if len(new_content) < 100:
+            logger.warning("Compact returned too short — skipping overwrite")
+            return {"error": "Compact result too short, profile not updated"}
+
+        ctx_path.write_text(new_content, encoding="utf-8")
+        logger.info(
+            "coaching_context.md compacted (%d sessions)", len(sessions_this_month),
+        )
         return {
             "report": (
-                f"✅ <b>Инсайты сохранены</b>\n\n"
-                f"<i>{_json.dumps(data, ensure_ascii=False, indent=2)}</i>"
-                if data else
-                "✅ Coach Mode завершён. Ничего нового в профиль не добавлено."
-            )
+                f"✅ Профиль обновлён по итогам "
+                f"{len(sessions_this_month)} коуч-сессий за {month_prefix}."
+            ),
         }
 
     def zoom_in(self) -> dict[str, Any]:

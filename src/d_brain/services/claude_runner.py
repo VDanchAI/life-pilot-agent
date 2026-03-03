@@ -52,7 +52,7 @@ class ClaudeRunner:
         ).resolve()
 
     def run(
-        self, prompt: str, label: str,
+        self, prompt: str, label: str, model: str = "",
     ) -> dict[str, Any]:
         """Run Claude CLI with one retry on non-zero exit (not on timeout).
 
@@ -63,16 +63,16 @@ class ClaudeRunner:
         Returns:
             Dict with "report" on success or "error" on failure.
         """
-        result = self._execute(prompt, label)
+        result = self._execute(prompt, label, model=model)
         if "error" in result and "timed out" not in result["error"]:
             logger.info("Retrying %s after failure...", label)
             import time
             time.sleep(3)
-            result = self._execute(prompt, label)
+            result = self._execute(prompt, label, model=model)
         return result
 
     def _execute(
-        self, prompt: str, label: str,
+        self, prompt: str, label: str, model: str = "",
     ) -> dict[str, Any]:
         """Single execution of Claude CLI."""
         try:
@@ -80,16 +80,19 @@ class ClaudeRunner:
             if self.todoist_api_key:
                 env["TODOIST_API_KEY"] = self.todoist_api_key
 
+            cmd = [
+                "claude",
+                "--print",
+                "--dangerously-skip-permissions",
+                "--mcp-config",
+                str(self._mcp_config_path),
+            ]
+            if model:
+                cmd.extend(["--model", model])
+            cmd.extend(["-p", prompt])
+
             proc = subprocess.run(
-                [
-                    "claude",
-                    "--print",
-                    "--dangerously-skip-permissions",
-                    "--mcp-config",
-                    str(self._mcp_config_path),
-                    "-p",
-                    prompt,
-                ],
+                cmd,
                 cwd=self.vault_path.parent,
                 capture_output=True,
                 text=True,

@@ -143,13 +143,13 @@ def search_vault(
         keywords: List of search terms (Russian or English).
         limit: Maximum number of results to return.
         max_chars: Maximum characters to include from each file's content.
-        vault_path: Override vault root path. Defaults to ~/life-pilot-agent/vault.
+        vault_path: Override vault root path. Defaults to ~/agent-second-brain/vault.
 
     Returns:
         List of dicts: {path, date, category, content}.
     """
     if vault_path is None:
-        vault_path = Path.home() / "life-pilot-agent" / _VAULT_RELATIVE
+        vault_path = Path.home() / "agent-second-brain" / _VAULT_RELATIVE
 
     if not vault_path.exists():
         logger.warning("Vault path does not exist: %s", vault_path)

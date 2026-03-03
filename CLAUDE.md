@@ -222,16 +222,17 @@ ALLOWED_USER_IDS=[123]   # JSON-массив разрешённых Telegram ID
 GIT_PUSH_ENABLED=true    # Автопуш в GitHub
 CLAUDE_TIMEOUT=1200      # Таймаут subprocess в секундах (default: 1200)
 TRANSCRIPTION_LANGUAGE=ru  # Язык транскрипции Deepgram (default: ru)
+GOOGLE_TOKEN_PATH=~/life-pilot/token.json  # Путь к Google OAuth токену (default: ~/life-pilot/token.json)
 ```
 
 ### Установка
 
 ```bash
 # Быстрая установка на VPS
-curl -fsSL https://raw.githubusercontent.com/USER/life-pilot-agent/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/USER/agent-second-brain/main/bootstrap.sh | bash
 
 # Или вручную
-git clone <repo> && cd life-pilot-agent
+git clone <repo> && cd agent-second-brain
 cp .env.example .env     # Заполнить токены
 uv sync                  # Установить зависимости
 ```

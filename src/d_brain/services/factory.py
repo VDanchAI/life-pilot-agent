@@ -20,7 +20,9 @@ def get_processor() -> ClaudeProcessor:
     settings = get_settings()
     from d_brain.services.processor import ClaudeProcessor
 
-    return ClaudeProcessor(settings.vault_path, settings.todoist_api_key)
+    return ClaudeProcessor(
+        settings.vault_path, settings.todoist_api_key, settings.coach_model,
+    )
 
 
 @lru_cache(maxsize=1)

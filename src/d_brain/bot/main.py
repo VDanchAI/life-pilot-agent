@@ -127,6 +127,7 @@ def create_scheduler(bot: Bot, settings: Settings):  # type: ignore[no-untyped-d
     )
 
     from d_brain.bot.handlers.grow_scheduler import (
+        scheduled_coach_compact,
         scheduled_grow_monthly,
         scheduled_grow_quarterly,
         scheduled_grow_weekly,
@@ -233,10 +234,23 @@ def create_scheduler(bot: Bot, settings: Settings):  # type: ignore[no-untyped-d
         replace_existing=True,
     )
 
+    # Coach profile compact — 1st of each month at 22:00
+    scheduler.add_job(
+        scheduled_coach_compact,
+        trigger="cron",
+        day=1,
+        hour=22,
+        minute=0,
+        kwargs={"bot": bot, "chat_id": chat_id},
+        id="coach_compact",
+        replace_existing=True,
+    )
+
     logger.info(
         "Scheduler configured: monthly (1st 20:30), "
         "reminders (2-3rd 21:00), "
-        "GROW weekly/monthly/quarterly/yearly"
+        "GROW weekly/monthly/quarterly/yearly, "
+        "coach compact (1st 22:00)"
     )
     return scheduler
 

@@ -21,7 +21,9 @@ router = Router(name="coach")
 logger = logging.getLogger(__name__)
 
 _STOP_RE = re.compile(
-    r"^(стоп|stop|завершить|закончить|выход|конец)[.!]?$", re.IGNORECASE
+    r"^(стоп|stop|завершить|закончить|выход|конец|хватит|всё|все"
+    r"|спасибо\s*[,.]?\s*достаточно)[.!?]?$",
+    re.IGNORECASE,
 )
 
 _WELCOME = (
@@ -81,13 +83,20 @@ async def handle_coach_message(message: Message, bot: Bot, state: FSMContext) ->
         await message.answer("Отправь текст или голосовое сообщение.")
         return
 
-    # --- Stop trigger ---
-    if _STOP_RE.match(user_text.strip()):
+    data = await state.get_data()
+
+    # --- Reflection capture (after stop trigger) ---
+    if data.get("reflecting"):
+        await state.update_data(reflection_answer=user_text, reflecting=False)
         await _offer_save(message, state)
         return
 
+    # --- Stop trigger ---
+    if _STOP_RE.match(user_text.strip()):
+        await _start_reflection(message, state)
+        return
+
     # --- Send to Claude ---
-    data = await state.get_data()
     history: list[dict] = data.get("history", [])
     history.append({"role": "user", "content": user_text})
 
@@ -114,10 +123,11 @@ async def handle_coach_message(message: Message, bot: Bot, state: FSMContext) ->
 
     await send_formatted_report(status_msg, result)
 
-    # Remind about stop every 5 turns
-    if turn > 0 and turn % 5 == 0:
+    # Remind about stop every 10 turns
+    if turn > 0 and turn % 10 == 0:
         await message.answer(
-            "💡 <i>Напиши «стоп» чтобы завершить и сохранить сессию</i>"
+            "💡 <i>Кстати, если чувствуешь что разговор подходит к точке"
+            " — напиши «стоп» и я подведу итог.</i>"
         )
 
 
@@ -126,17 +136,23 @@ async def handle_coach_message(message: Message, bot: Bot, state: FSMContext) ->
 # ---------------------------------------------------------------------------
 
 
-async def _offer_save(message: Message, state: FSMContext) -> None:
-    """Ask user whether to save insights to coaching_context."""
+async def _start_reflection(message: Message, state: FSMContext) -> None:
+    """Send final reflection question before saving."""
     data = await state.get_data()
     history: list[dict] = data.get("history", [])
-
-    await state.set_state(CoachStates.saving)
 
     if not history:
         await state.clear()
         await message.answer("Coach Mode выключен. Сессия была пустой.")
         return
+
+    await state.update_data(reflecting=True)
+    await message.answer("Что из этого разговора самое важное для тебя?")
+
+
+async def _offer_save(message: Message, state: FSMContext) -> None:
+    """Ask user whether to save insights to coaching_context."""
+    await state.set_state(CoachStates.saving)
 
     builder = InlineKeyboardBuilder()
     builder.button(text="💾 Сохранить инсайты", callback_data="coach_save")
@@ -162,13 +178,15 @@ async def handle_coach_save(callback: CallbackQuery, state: FSMContext) -> None:
 
     data = await state.get_data()
     history: list[dict] = data.get("history", [])
+    reflection_answer: str = data.get("reflection_answer", "")
     await state.clear()
 
     status_msg = await msg.answer("⏳ Сохраняю инсайты...")
     processor = get_processor()
     try:
         result = await run_with_progress(
-            processor.save_coach_insights, status_msg, "⏳ Сохраняю...", history,
+            processor.save_coach_insights,
+            status_msg, "⏳ Сохраняю...", history, reflection_answer,
         )
     except BusyError as e:
         await status_msg.edit_text(str(e))

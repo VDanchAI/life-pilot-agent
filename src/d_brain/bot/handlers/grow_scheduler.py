@@ -10,6 +10,7 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from d_brain.config import get_settings
+from d_brain.services.factory import get_processor
 from d_brain.services.grow import (
     get_period_for_session,
     is_reflection_done,
@@ -493,3 +494,41 @@ async def scheduled_grow_yearly_start(bot: Bot, chat_id: int) -> None:
         logger.exception(
             "Failed to send yearly-start GROW start prompt (attempt %d)", attempt
         )
+
+
+# ---------------------------------------------------------------------------
+# Coach profile compaction
+# ---------------------------------------------------------------------------
+
+
+async def scheduled_coach_compact(bot: Bot, chat_id: int) -> None:
+    """Monthly: compact coach profile from sessions JSONL.
+
+    Called on the 1st of each month at 22:00 (after GROW monthly at 21:00).
+    Runs only if there were coach sessions this month. Sends result to user.
+    """
+    processor = get_processor()
+    try:
+        result = processor.compact_coach_profile()
+    except Exception:
+        logger.exception("Coach profile compact failed")
+        return
+
+    if "error" in result:
+        logger.warning("Coach compact error: %s", result["error"])
+        try:
+            await bot.send_message(
+                chat_id, "⚠️ Не удалось обновить профиль коуча автоматически.",
+            )
+        except Exception:
+            pass
+        return
+
+    report = result.get("report", "")
+    if not report:
+        return  # no sessions this month — silent skip
+
+    try:
+        await bot.send_message(chat_id, f"📊 {report}")
+    except Exception:
+        logger.exception("Failed to send coach compact notification")

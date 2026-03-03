@@ -27,3 +27,23 @@ Thumbs.db
 credentials.json
 token.pickle
 token.json
+
+# v2 session/graph temp data
+vault/.session/
+vault/.graph/
+logs/claude-output-*.txt
+
+# Personal vault content (never commit)
+vault/daily/*.md
+vault/goals/
+vault/reflections/
+vault/summaries/
+vault/thoughts/
+vault/self-deception/
+vault/sessions/
+vault/attachments/*/
+vault/*.base
+vault/*.canvas
+vault/.claude/skills/dbrain-processor/references/about.md
+vault/.claude/skills/dbrain-processor/references/goals.md
+vault/.claude/skills/dbrain-processor/references/process-goals.md
