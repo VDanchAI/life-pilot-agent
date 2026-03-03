@@ -99,6 +99,24 @@ The heart of Life Pilot. A structured reflection system based on the GROW framew
 | 📊 Status | Current system status |
 | ❓ Help | Command reference |
 
+### 🤝 Coach Mode
+
+An on-demand conversational coaching session — not a scheduled protocol, but a real-time dialogue you initiate when you need it.
+
+**Start:** `/coach` command or the 🤝 Coach button.
+
+**How it works:**
+- Talk freely — text or voice. Claude reads your message and determines your current state:
+  - **Stream** — venting, jumping between topics, thinking out loud → reflection + space
+  - **Focus** — circling one topic, comparing options → deepening, scaling, provocation
+  - **Readiness** — insight emerged, you're formulating a conclusion → anchor it, make it concrete
+- Knows your goals, recent diary entries, and last session summary — uses this only when it naturally fits the conversation
+- One question per message, no advice without request, no lists — just dialogue
+- When done, write "stop" → Claude generates a closing reflection: *"You started with X, arrived at Y — what matters most?"*
+- You answer → save insights → they go into your profile and diary, carried into future sessions
+
+**What it is not:** a GROW protocol, therapy, or task assistant. It's a skilled listener who knows your context.
+
 ### 🔄 Integrations via MCP
 
 | Service | What it does |
@@ -220,14 +238,80 @@ ALLOWED_USER_IDS=[123]    # Your Telegram ID (from @userinfobot)
 GIT_PUSH_ENABLED=true
 ```
 
-### 2. Set Up Your Goals
+### 2. Set Up Your Vault
 
-Fill in the files in `vault/goals/`:
+Create the vault directory structure and fill in your context files:
 
-- `0-vision-3y.md` — 3-year vision
-- `1-yearly-2026.md` — yearly goals
-- `2-monthly.md` — monthly priorities
-- `3-weekly.md` — weekly focus
+```bash
+mkdir -p vault/{daily,goals,thoughts/{ideas,learnings,projects,reflections,tasks},reflections/{weekly,monthly,quarterly,yearly_start,yearly_end},summaries,sessions,attachments,templates}
+touch vault/daily/.gitkeep vault/attachments/.gitkeep
+```
+
+**`vault/goals/coaching_context.md`** — the most important file. Coach Mode and all AI features read this to understand who you are:
+
+```markdown
+# Coaching Context
+
+## Profile
+
+- Timezone: Europe/London
+- Role: [your role / occupation]
+- Working style: [remote / office / mixed]
+
+## Current Goals and Daily Actions
+
+| Goal (outcome) | Daily action |
+|---|---|
+| [Your main goal] | [What you do daily to move toward it] |
+| [Second goal] | [Daily action] |
+
+## What Gives Energy
+
+- [e.g., deep focused work in the morning]
+- [e.g., physical activity]
+
+## What Drains Energy
+
+- [e.g., endless meetings without outcomes]
+- [e.g., unclear priorities]
+
+## Current Focus (this month)
+
+[2-3 sentences: what are you working on right now, what matters most]
+
+## Known Patterns and Blockers
+
+- [e.g., tend to avoid difficult conversations]
+- [e.g., lose focus when working on too many things at once]
+```
+
+**`vault/goals/1-yearly-YYYY.md`** — yearly goals (replace YYYY with current year):
+
+```markdown
+# Goals YYYY
+
+## [Goal Area 1]
+- Outcome: [what does success look like]
+- Key milestones: [main checkpoints]
+
+## [Goal Area 2]
+- Outcome: [what does success look like]
+```
+
+**`vault/goals/2-monthly.md`** — current month priorities:
+
+```markdown
+# Monthly Goals — [Month YYYY]
+
+## Focus
+[Main theme or intention for this month]
+
+## Goals
+- [ ] [Goal 1]
+- [ ] [Goal 2]
+```
+
+> **Without `coaching_context.md` the Coach Mode will work, but without knowing your goals and context — it's just a generic chatbot. Fill it in first.**
 
 ### 3. Install & Run
 
