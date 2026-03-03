@@ -96,6 +96,7 @@ The heart of Life Pilot. A structured reflection system based on the GROW framew
 | ⚙️ Process | Run Claude on today's inbox — sort, classify, create tasks |
 | 📋 Plan | Morning briefing: calendar + tasks + priorities |
 | 📅 Week | Weekly progress digest |
+| 🤝 Coach | Start a conversational coaching session |
 | 📊 Status | Current system status |
 | ❓ Help | Command reference |
 
