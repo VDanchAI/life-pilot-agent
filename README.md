@@ -99,6 +99,20 @@ The heart of Life Pilot. A structured reflection system based on the GROW framew
 | 📊 Status | Current system status |
 | ❓ Help | Command reference |
 
+### 🔭 Zoom In / Zoom Out
+
+Send a message with a trigger phrase and the bot instantly shifts your perspective:
+
+**Zoom Out** — when you're lost in details and need the big picture:
+> *"zoom out", "погряз в деталях", "потерял нить", "большая картина", "зачем всё это"*
+
+Claude reminds you of your vision, yearly goals, and why this work matters.
+
+**Zoom In** — when you're floating in abstractions and need to act:
+> *"zoom in", "витаю в облаках", "что делать сегодня", "с чего начать", "за что хвататься"*
+
+Claude gives you a concrete action for right now based on your tasks and priorities.
+
 ### 🤝 Coach Mode
 
 An on-demand conversational coaching session — not a scheduled protocol, but a real-time dialogue you initiate when you need it.
