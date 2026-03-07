@@ -4,11 +4,12 @@ import asyncio
 import logging
 from datetime import date, timedelta
 
-from aiogram import Router
+from aiogram import Bot, Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
 from d_brain.bot.components.task_keyboard import create_task_keyboard
+from d_brain.bot.formatters import format_process_report
 from d_brain.bot.progress import BusyError, run_with_progress
 from d_brain.bot.utils import send_formatted_report
 from d_brain.services.factory import get_git, get_processor, get_todoist
@@ -97,3 +98,42 @@ async def cmd_weekly(message: Message) -> None:
             text,
             reply_markup=create_task_keyboard(task_id, "weekly"),
         )
+
+
+# ── Scheduled job functions ───────────────────────────────────────────
+
+
+async def scheduled_weekly_report(bot: Bot, chat_id: int) -> None:
+    """Called by APScheduler on Saturday at 21:00.
+
+    Skips on days 1-3 of the month — monthly GROW takes priority.
+    """
+    if date.today().day <= 3:
+        logger.info("Weekly report: day 1-3 of month — deferring to monthly")
+        return
+
+    logger.info("Scheduled weekly report starting")
+    processor = get_processor()
+    git = get_git()
+
+    try:
+        report = await asyncio.to_thread(processor.generate_weekly)
+    except Exception as e:
+        logger.error("Scheduled weekly report failed: %s", e)
+        try:
+            await bot.send_message(chat_id, f"⚠️ Не удалось сгенерировать недельный дайджест: {e}")
+        except Exception:
+            pass
+        return
+
+    if "error" not in report:
+        await asyncio.to_thread(git.commit_and_push, "chore: weekly digest")
+
+    formatted = format_process_report(report)
+    try:
+        await bot.send_message(chat_id, formatted)
+    except Exception:
+        try:
+            await bot.send_message(chat_id, formatted, parse_mode=None)
+        except Exception:
+            logger.exception("Failed to send scheduled weekly report")

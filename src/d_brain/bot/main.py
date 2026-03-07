@@ -171,15 +171,30 @@ def create_scheduler(bot: Bot, settings: Settings):  # type: ignore[no-untyped-d
         replace_existing=True,
     )
 
-    # GROW weekly — Saturday, Sunday, Monday at 21:00
+    # GROW weekly — Saturday at 20:30 (reflection request)
     scheduler.add_job(
         scheduled_grow_weekly,
         trigger="cron",
-        day_of_week="sat,sun,mon",
+        day_of_week="sat",
+        hour=20,
+        minute=30,
+        kwargs={"bot": bot, "chat_id": chat_id},
+        id="grow_weekly_reflection",
+        replace_existing=True,
+    )
+
+    # Weekly report — Saturday at 21:00
+    from d_brain.bot.handlers.weekly import (
+        scheduled_weekly_report,
+    )
+    scheduler.add_job(
+        scheduled_weekly_report,
+        trigger="cron",
+        day_of_week="sat",
         hour=21,
         minute=0,
         kwargs={"bot": bot, "chat_id": chat_id},
-        id="grow_weekly",
+        id="weekly_report",
         replace_existing=True,
     )
 
@@ -195,13 +210,13 @@ def create_scheduler(bot: Bot, settings: Settings):  # type: ignore[no-untyped-d
         replace_existing=True,
     )
 
-    # GROW quarterly — Apr/Jul/Oct 1-3 at 21:00
+    # GROW quarterly — Apr/Jul/Oct/Dec 1-3 at 22:00 (after monthly GROW at 21:00)
     scheduler.add_job(
         scheduled_grow_quarterly,
         trigger="cron",
-        month="4,7,10",
+        month="4,7,10,12",
         day="1-3",
-        hour=21,
+        hour=22,
         minute=0,
         kwargs={"bot": bot, "chat_id": chat_id},
         id="grow_quarterly",
@@ -234,12 +249,12 @@ def create_scheduler(bot: Bot, settings: Settings):  # type: ignore[no-untyped-d
         replace_existing=True,
     )
 
-    # Coach profile compact — 1st of each month at 22:00
+    # Coach profile compact — 1st of each month at 03:00
     scheduler.add_job(
         scheduled_coach_compact,
         trigger="cron",
         day=1,
-        hour=22,
+        hour=3,
         minute=0,
         kwargs={"bot": bot, "chat_id": chat_id},
         id="coach_compact",
