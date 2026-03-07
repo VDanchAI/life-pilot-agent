@@ -91,14 +91,17 @@ The heart of Life Pilot. A structured reflection system based on the GROW framew
 
 | Button | What it does |
 |---|---|
-| ✨ Request | Free-form query to Claude — search notes, analyze, advise |
-| 📌 Task | Quick task capture → Todoist |
-| ⚙️ Process | Run Claude on today's inbox — sort, classify, create tasks |
-| 📋 Plan | Morning briefing: calendar + tasks + priorities |
-| 📅 Week | Weekly progress digest |
-| 🤝 Coach | Start a conversational coaching session |
-| 📊 Status | Current system status |
-| ❓ Help | Command reference |
+| 🤖 Сделать | Free-form query to Claude — search notes, analyze, advise |
+| 🔍 Найти | Search your vault |
+| 🤝 Коуч | Start a conversational coaching session |
+| 🧹 Разобрать день | Run Claude on today's inbox — sort, classify, create tasks |
+| 📋 План | Morning briefing: calendar + tasks + priorities |
+| 📅 Неделя | Weekly progress digest |
+| 📊 Статус | Current system status |
+| ℹ️ Помощь | Command reference |
+| 🎲 Находка | Random insight from your vault |
+| 🏥 Здоровье | Vault health check |
+| 🧠 Память | Your MEMORY.md file |
 
 ### 🔭 Zoom In / Zoom Out
 
@@ -179,7 +182,7 @@ src/d_brain/
 ├── config.py                # Pydantic Settings from .env
 ├── bot/
 │   ├── main.py              # Bot init, router registration
-│   ├── keyboards.py         # Reply keyboard (7 buttons)
+│   ├── keyboards.py         # Reply keyboard (11 buttons)
 │   ├── formatters.py        # HTML report formatting
 │   ├── progress.py          # Async progress utility
 │   ├── utils.py             # Shared helpers
@@ -250,7 +253,7 @@ DEEPGRAM_API_KEY=         # console.deepgram.com
 TODOIST_API_KEY=          # Todoist → Settings → Integrations
 VAULT_PATH=./vault
 ALLOWED_USER_IDS=[123]    # Your Telegram ID (from @userinfobot)
-GIT_PUSH_ENABLED=true
+COACH_MODEL=claude-opus-4-6  # Model for Coach Mode (use a capable one)
 ```
 
 ### 2. Set Up Your Vault
@@ -386,7 +389,7 @@ This project started as a fork of [smixs/agent-second-brain](https://github.com/
 | Monthly planning | ❌ | ✅ Guided goal-setting session |
 | Smart task management | Basic | Stale detection, transfers, updates |
 | Project sorting | Single inbox | Multi-project classification |
-| Interactive buttons | Basic | 7-button keyboard with full workflows |
+| Interactive buttons | Basic | 11-button keyboard with full workflows |
 | Bug fixes | — | Multiple hidden issues resolved |
 | Code quality | — | ruff 0 errors, mypy strict 0 errors |
 
